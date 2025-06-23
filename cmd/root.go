@@ -19,6 +19,11 @@ func getAppName() string {
 
 // NewRootCommand creates and returns the root cobra command
 func NewRootCommand() *cobra.Command {
+	return NewRootCommandWithVersion("dev")
+}
+
+// NewRootCommandWithVersion creates and returns the root cobra command with a specific version
+func NewRootCommandWithVersion(version string) *cobra.Command {
 	var exclude []string
 	var disableCategories []string
 	var noDefaults bool
@@ -26,6 +31,7 @@ func NewRootCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:           fmt.Sprintf("%s [directory]", getAppName()),
 		Short:         fmt.Sprintf("%s allows you to quickly create contexts to be given to GPT-like apps from your source code", getAppName()),
+		Version:       version,
 		Args:          cobra.MaximumNArgs(1),
 		SilenceErrors: true,
 		SilenceUsage:  true,
