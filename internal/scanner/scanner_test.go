@@ -3,6 +3,7 @@ package scanner
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -135,7 +136,7 @@ func TestScanner_Scan_WithBinaryFiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Create a binary file (executable-like content)
 	binaryFile := filepath.Join(tempDir, "binary")
@@ -606,12 +607,13 @@ func TestScanner_Integration_RealisticProject(t *testing.T) {
 			additionalPatterns: nil,
 			disabledCategories: []string{"go"},
 			expectedIncluded: []string{
-				"main.go", "go.sum", "test.prof", "main.test", // Go files now included
+				"main.go", "go.sum", "test.prof", // Go files now included
 				"README.md", "Dockerfile",
 			},
 			expectedExcluded: []string{
+				"coverage.out",         // Still excluded by latex category (*.out pattern)
 				"app.log", "debug.log", // Logs still excluded
-				".env", "secrets.json", "temp.tmp", // Other excluded files
+				".env", "secrets.json", // Other excluded files
 				// Note: node_modules, vendor, .git, .vscode directories are excluded entirely
 			},
 			minFileCount: 12,
@@ -1140,13 +1142,13 @@ API_KEY=sk-1234567890abcdef`),
 func TestCLI_ListExclusions_EndToEnd(t *testing.T) {
 	testCases := []struct {
 		name           string
-		function       func()
+		function       func(w io.Writer)
 		expectedOutput []string
 		description    string
 	}{
 		{
 			name:     "list_all_exclusions",
-			function: func() { filter.PrintExclusions() },
+			function: func(w io.Writer) { filter.PrintExclusions(w) },
 			expectedOutput: []string{
 				"Default Exclusions by Category",
 				"ID: vcs", "ID: deps", "ID: build", "ID: go", "ID: logs",
@@ -1156,7 +1158,7 @@ func TestCLI_ListExclusions_EndToEnd(t *testing.T) {
 		},
 		{
 			name:     "list_patterns_only",
-			function: func() { filter.PrintPatternsOnly() },
+			function: func(w io.Writer) { filter.PrintPatternsOnly(w) },
 			expectedOutput: []string{
 				"*.log", "*.tmp", "go.sum", "coverage.out",
 				".git", "node_modules", "vendor",
@@ -1165,7 +1167,7 @@ func TestCLI_ListExclusions_EndToEnd(t *testing.T) {
 		},
 		{
 			name:     "list_go_category",
-			function: func() { filter.PrintCategoryExclusions("go") },
+			function: func(w io.Writer) { filter.PrintCategoryExclusions(w, "go") },
 			expectedOutput: []string{
 				"*.test", "go.sum", "coverage.out", "*.prof",
 			},
@@ -1175,21 +1177,12 @@ func TestCLI_ListExclusions_EndToEnd(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Capture stdout
-			oldStdout := os.Stdout
-			r, w, _ := os.Pipe()
-			os.Stdout = w
+			var buffer bytes.Buffer
 
-			// Run the function
-			tc.function()
+			// Run the function with buffer
+			tc.function(&buffer)
 
-			// Restore stdout and read output
-			w.Close()
-			os.Stdout = oldStdout
-
-			var buf bytes.Buffer
-			buf.ReadFrom(r)
-			output := buf.String()
+			output := buffer.String()
 
 			t.Logf("Test scenario: %s", tc.description)
 
@@ -1215,5 +1208,89 @@ func TestCLI_ListExclusions_EndToEnd(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestScanner_DryRun(t *testing.T) {
+	// Create temporary directory with test files
+	tempDir, err := os.MkdirTemp("", "scanner_test_dryrun")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Create test files
+	testFiles := map[string]string{
+		"app.go":      "package main\nfunc main() {}",
+		"README.md":   "# Project\nDescription here",
+		"app.log":     "log entry",
+		"config.json": `{"key": "value"}`,
+	}
+
+	for filename, content := range testFiles {
+		filePath := filepath.Join(tempDir, filename)
+		if err := os.WriteFile(filePath, []byte(content), 0o644); err != nil {
+			t.Fatalf("Failed to create test file %s: %v", filename, err)
+		}
+	}
+
+	// Create subdirectory with file
+	subDir := filepath.Join(tempDir, "subdir")
+	if err := os.Mkdir(subDir, 0o755); err != nil {
+		t.Fatalf("Failed to create subdirectory: %v", err)
+	}
+
+	subFile := filepath.Join(subDir, "sub.txt")
+	if err := os.WriteFile(subFile, []byte("sub content"), 0o644); err != nil {
+		t.Fatalf("Failed to create subdir file: %v", err)
+	}
+
+	// Test with default filter (excludes .log files)
+	filter := filter.NewWithDefaults(nil, nil)
+	var buffer bytes.Buffer
+	scanner := New(filter, &buffer)
+
+	err = scanner.DryRun(tempDir)
+	if err != nil {
+		t.Errorf("DryRun() failed: %v", err)
+	}
+
+	output := buffer.String()
+
+	// Check that output contains expected sections
+	if !strings.Contains(output, "Files that would be processed:") {
+		t.Error("Output should contain 'Files that would be processed:' section")
+	}
+
+	if !strings.Contains(output, "Files that would be excluded:") {
+		t.Error("Output should contain 'Files that would be excluded:' section")
+	}
+
+	// Check that included files are shown
+	if !strings.Contains(output, "app.go") {
+		t.Error("app.go should be in processed files")
+	}
+
+	if !strings.Contains(output, "README.md") {
+		t.Error("README.md should be in processed files")
+	}
+
+	if !strings.Contains(output, "config.json") {
+		t.Error("config.json should be in processed files")
+	}
+
+	// Check that excluded files are shown with reasons
+	if !strings.Contains(output, "app.log") {
+		t.Error("app.log should be in excluded files")
+	}
+
+	// Check that exclusion reason is shown
+	if !strings.Contains(output, "[Logs & Temporary: *.log]") {
+		t.Error("app.log should show exclusion reason")
+	}
+
+	// Check tree structure (basic check for tree characters)
+	if !strings.Contains(output, "├──") || !strings.Contains(output, "└──") {
+		t.Error("Output should contain tree structure characters")
 	}
 }

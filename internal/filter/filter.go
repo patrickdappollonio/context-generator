@@ -2,7 +2,7 @@ package filter
 
 import (
 	"fmt"
-	"os"
+	"io"
 	"path/filepath"
 	"slices"
 	"sort"
@@ -200,19 +200,19 @@ func ValidateCategoryIDs(ids []string) []string {
 }
 
 // PrintExclusions prints all exclusions organized by category with patterns in columns
-func PrintExclusions() {
-	fmt.Println("Default Exclusions by Category")
-	fmt.Println("==============================")
+func PrintExclusions(w io.Writer) {
+	fmt.Fprintln(w, "Default Exclusions by Category")
+	fmt.Fprintln(w, "==============================")
 
 	for i, category := range exclusionCategories {
 		if i > 0 {
-			fmt.Println() // Add spacing between categories
+			fmt.Fprintln(w) // Add spacing between categories
 		}
 
 		// Print category header
-		fmt.Printf("ID: %s - %s\n", category.ID, category.Name)
-		fmt.Printf("Description: %s\n", category.Description)
-		fmt.Println("Patterns:")
+		fmt.Fprintf(w, "ID: %s - %s\n", category.ID, category.Name)
+		fmt.Fprintf(w, "Description: %s\n", category.Description)
+		fmt.Fprintln(w, "Patterns:")
 
 		// Sort patterns for consistent output
 		patterns := make([]string, len(category.Patterns))
@@ -221,22 +221,22 @@ func PrintExclusions() {
 
 		// Print each pattern on its own line with indentation
 		for _, pattern := range patterns {
-			fmt.Printf("  %s\n", pattern)
+			fmt.Fprintf(w, "  %s\n", pattern)
 		}
 	}
 
-	fmt.Printf("\nSummary:\n")
-	fmt.Printf("  Total categories: %d\n", len(exclusionCategories))
-	fmt.Printf("  Total patterns: %d\n", len(GetAllPatterns()))
+	fmt.Fprintf(w, "\nSummary:\n")
+	fmt.Fprintf(w, "  Total categories: %d\n", len(exclusionCategories))
+	fmt.Fprintf(w, "  Total patterns: %d\n", len(GetAllPatterns()))
 
-	fmt.Println("\nUsage:")
-	fmt.Println("  --disable-category <id>     Disable a specific category")
-	fmt.Println("  --disable-category go,vcs   Disable multiple categories")
+	fmt.Fprintln(w, "\nUsage:")
+	fmt.Fprintln(w, "  --disable-category <id>     Disable a specific category")
+	fmt.Fprintln(w, "  --disable-category go,vcs   Disable multiple categories")
 
-	fmt.Println("\nExamples:")
-	fmt.Println("  context-generator --disable-category go     # Include go.sum and Go test files")
-	fmt.Println("  context-generator --disable-category vcs    # Include .git directory contents")
-	fmt.Println("  context-generator --disable-category logs   # Include log files")
+	fmt.Fprintln(w, "\nExamples:")
+	fmt.Fprintln(w, "  context-generator --disable-category go     # Include go.sum and Go test files")
+	fmt.Fprintln(w, "  context-generator --disable-category vcs    # Include .git directory contents")
+	fmt.Fprintln(w, "  context-generator --disable-category logs   # Include log files")
 }
 
 // Filter handles path exclusion based on patterns
@@ -265,6 +265,19 @@ func NewWithDefaults(additionalPatterns []string, disabledCategoryIDs []string) 
 // ShouldExclude checks if a path should be excluded based on the exclusion patterns.
 // It supports folder names, relative paths, and wildcards.
 func (f *Filter) ShouldExclude(path, baseDir string, isDir bool) bool {
+	reason := f.GetExclusionReason(path, baseDir, isDir)
+	return reason != nil
+}
+
+// ExclusionReason represents why a file was excluded
+type ExclusionReason struct {
+	Pattern  string
+	Category string
+}
+
+// GetExclusionReason returns the reason a path would be excluded, or nil if it wouldn't be excluded.
+// It supports folder names, relative paths, and wildcards.
+func (f *Filter) GetExclusionReason(path, baseDir string, isDir bool) *ExclusionReason {
 	// Get the relative path from the base directory
 	relPath, err := filepath.Rel(baseDir, path)
 	if err != nil {
@@ -277,12 +290,18 @@ func (f *Filter) ShouldExclude(path, baseDir string, isDir bool) bool {
 	for _, pattern := range f.patterns {
 		// Try matching against the name
 		if matched, _ := filepath.Match(pattern, name); matched {
-			return true
+			return &ExclusionReason{
+				Pattern:  pattern,
+				Category: GetCategoryForPattern(pattern),
+			}
 		}
 
 		// Try matching against the relative path
 		if matched, _ := filepath.Match(pattern, relPath); matched {
-			return true
+			return &ExclusionReason{
+				Pattern:  pattern,
+				Category: GetCategoryForPattern(pattern),
+			}
 		}
 
 		// For directories, also try matching against path components
@@ -290,21 +309,24 @@ func (f *Filter) ShouldExclude(path, baseDir string, isDir bool) bool {
 			pathComponents := strings.Split(relPath, string(filepath.Separator))
 			for _, component := range pathComponents {
 				if matched, _ := filepath.Match(pattern, component); matched {
-					return true
+					return &ExclusionReason{
+						Pattern:  pattern,
+						Category: GetCategoryForPattern(pattern),
+					}
 				}
 			}
 		}
 	}
 
-	return false
+	return nil
 }
 
-// PrintPatternsOnly prints only the patterns ordered by category (wildcards first, then literals)
-func PrintPatternsOnly() {
-	for _, category := range exclusionCategories {
-		// Separate wildcards from literal patterns
-		var wildcards, literals []string
+// PrintPatternsOnly prints only the patterns ordered globally (wildcards first, then literals)
+func PrintPatternsOnly(w io.Writer) {
+	// Collect all patterns from all categories
+	var wildcards, literals []string
 
+	for _, category := range exclusionCategories {
 		for _, pattern := range category.Patterns {
 			if strings.ContainsAny(pattern, "*?[]") {
 				wildcards = append(wildcards, pattern)
@@ -312,23 +334,23 @@ func PrintPatternsOnly() {
 				literals = append(literals, pattern)
 			}
 		}
+	}
 
-		// Sort each group
-		sort.Strings(wildcards)
-		sort.Strings(literals)
+	// Sort each group alphabetically
+	sort.Strings(wildcards)
+	sort.Strings(literals)
 
-		// Print wildcards first, then literals
-		for _, pattern := range wildcards {
-			fmt.Println(pattern)
-		}
-		for _, pattern := range literals {
-			fmt.Println(pattern)
-		}
+	// Print wildcards first, then literals
+	for _, pattern := range wildcards {
+		fmt.Fprintln(w, pattern)
+	}
+	for _, pattern := range literals {
+		fmt.Fprintln(w, pattern)
 	}
 }
 
 // PrintCategoryExclusions prints exclusions for a specific category ID
-func PrintCategoryExclusions(categoryID string) {
+func PrintCategoryExclusions(w io.Writer, categoryID string) {
 	for _, category := range exclusionCategories {
 		if category.ID == categoryID {
 			// Sort patterns for consistent output
@@ -338,11 +360,11 @@ func PrintCategoryExclusions(categoryID string) {
 
 			// Print each pattern on its own line
 			for _, pattern := range patterns {
-				fmt.Println(pattern)
+				fmt.Fprintln(w, pattern)
 			}
 			return
 		}
 	}
 	// This shouldn't happen due to validation, but just in case
-	fmt.Fprintf(os.Stderr, "Category %s not found\n", categoryID)
+	fmt.Fprintf(w, "Category %s not found\n", categoryID)
 }

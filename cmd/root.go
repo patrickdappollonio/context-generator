@@ -27,6 +27,7 @@ func NewRootCommandWithVersion(version string) *cobra.Command {
 	var exclude []string
 	var disableCategories []string
 	var noDefaults bool
+	var dryRun bool
 
 	cmd := &cobra.Command{
 		Use:           fmt.Sprintf("%s [directory]", getAppName()),
@@ -60,6 +61,9 @@ func NewRootCommandWithVersion(version string) *cobra.Command {
 
 			// Create scanner and run
 			s := scanner.New(f, os.Stdout)
+			if dryRun {
+				return s.DryRun(directory)
+			}
 			return s.Scan(directory)
 		},
 	}
@@ -67,6 +71,7 @@ func NewRootCommandWithVersion(version string) *cobra.Command {
 	cmd.Flags().StringSliceVar(&exclude, "exclude", nil, "exclude files/folders matching these patterns (supports wildcards)")
 	cmd.Flags().StringSliceVar(&disableCategories, "disable-category", nil, "disable default exclusion categories by ID (use list-exclusions to see IDs)")
 	cmd.Flags().BoolVar(&noDefaults, "no-defaults", false, "disable default exclusions")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show files that would be processed and excluded without generating output")
 
 	// Add the list-exclusions subcommand
 	listCmd := &cobra.Command{
@@ -83,11 +88,11 @@ func NewRootCommandWithVersion(version string) *cobra.Command {
 					fmt.Fprintf(os.Stderr, "Error: invalid category ID: %s. Use 'list-exclusions' to see valid IDs\n", categoryFilter)
 					os.Exit(1)
 				}
-				filter.PrintCategoryExclusions(categoryFilter)
+				filter.PrintCategoryExclusions(os.Stdout, categoryFilter)
 			} else if patternsOnly {
-				filter.PrintPatternsOnly()
+				filter.PrintPatternsOnly(os.Stdout)
 			} else {
-				filter.PrintExclusions()
+				filter.PrintExclusions(os.Stdout)
 			}
 		},
 	}

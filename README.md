@@ -69,6 +69,11 @@ context-generator list-exclusions --category build
 # Show only patterns (no headers) ordered by category
 context-generator list-exclusions --patterns-only
 
+# Preview files without generating output (dry-run mode)
+context-generator --dry-run                               # Show what files would be processed
+context-generator --dry-run --exclude "*.md"              # Preview with custom exclusions
+context-generator --dry-run --disable-category go         # Preview with disabled categories
+
 # Use with command-line tools for processing exclusions
 context-generator list-exclusions | grep -A5 "ID: go"     # Show Go-specific exclusions
 context-generator list-exclusions | grep "^\s\s" | wc -l  # Count total patterns
@@ -87,9 +92,46 @@ Available Commands:
 
 Flags:
       --disable-category strings   disable default exclusion categories by ID
+      --dry-run                    show files that would be processed and excluded without generating output
       --exclude strings            exclude files/folders matching these patterns (supports wildcards)
       --no-defaults                disable default exclusions
   -h, --help                       help for context-generator
+```
+
+### Dry-Run Mode
+
+The `--dry-run` flag lets you preview what files would be processed and which would be excluded without generating any output. This is useful for:
+
+- **Verifying filters** - Check if your exclusion patterns work as expected
+- **Understanding scope** - See exactly what files will be included in the context
+- **Debugging exclusions** - Identify why specific files are being filtered out
+- **Large projects** - Preview before processing huge codebases
+
+The dry-run output shows:
+1. **Files that would be processed** - In a tree structure, marking binary files that would be skipped
+2. **Files that would be excluded** - With the specific category and pattern that caused the exclusion
+
+**Example Output:**
+```
+$ context-generator --dry-run src/
+
+Dry run for directory: src/
+
+Files that would be processed:
+  ├── components/
+  ├── utils/
+  ├── App.tsx
+  └── main.ts
+  components/
+    ├── Button.tsx
+    └── Header.tsx
+  utils/
+    └── helpers.ts
+
+Files that would be excluded:
+  ├── build/ [Build Artifacts: build]
+  ├── node_modules/ [Dependencies: node_modules]
+  └── app.log [Logs & Temporary: *.log]
 ```
 
 ### Wildcard Patterns
@@ -246,17 +288,22 @@ Perfect for various AI-assisted development scenarios:
 
 ## Tips for AI Interaction
 
-1. **Be Specific**: After pasting the context, ask specific questions about the code
-2. **Mention File Names**: Reference specific files when asking questions
-3. **Update Context**: Re-run the tool when your code changes significantly
-4. **Size Awareness**: Very large codebases might hit AI token limits - use exclusions to focus on relevant parts
-5. **Use Categories**: Disable specific categories (like `logs` or `build`) to focus on source code
+1. **Preview First**: Use `--dry-run` to verify you're including the right files before generating context
+2. **Be Specific**: After pasting the context, ask specific questions about the code
+3. **Mention File Names**: Reference specific files when asking questions
+4. **Update Context**: Re-run the tool when your code changes significantly
+5. **Size Awareness**: Very large codebases might hit AI token limits - use exclusions to focus on relevant parts
+6. **Use Categories**: Disable specific categories (like `logs` or `build`) to focus on source code
 
 ## Command-Line Integration
 
 The tool is designed to work well with standard Unix command-line tools:
 
 ```bash
+# Preview before generating context
+context-generator --dry-run
+context-generator --dry-run --exclude "*.test.js" --disable-category logs
+
 # Save context to file
 context-generator > project-context.txt
 

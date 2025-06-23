@@ -461,19 +461,10 @@ func TestFilter_ShouldExclude_EdgeCases(t *testing.T) {
 }
 
 func TestPrintExclusions(t *testing.T) {
-	// Capture stdout
 	var buffer bytes.Buffer
-	originalStdout := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
 
-	// Call the function
-	PrintExclusions()
-
-	// Restore stdout and read output
-	w.Close()
-	os.Stdout = originalStdout
-	buffer.ReadFrom(r)
+	// Call the function with buffer
+	PrintExclusions(&buffer)
 
 	output := buffer.String()
 
@@ -500,19 +491,10 @@ func TestPrintExclusions(t *testing.T) {
 }
 
 func TestPrintPatternsOnly(t *testing.T) {
-	// Capture stdout
 	var buffer bytes.Buffer
-	originalStdout := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
 
-	// Call the function
-	PrintPatternsOnly()
-
-	// Restore stdout and read output
-	w.Close()
-	os.Stdout = originalStdout
-	buffer.ReadFrom(r)
+	// Call the function with buffer
+	PrintPatternsOnly(&buffer)
 
 	output := buffer.String()
 
@@ -560,36 +542,18 @@ func TestPrintCategoryExclusions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Capture stdout and stderr
-			var outBuffer, errBuffer bytes.Buffer
-			originalStdout := os.Stdout
-			originalStderr := os.Stderr
+			var buffer bytes.Buffer
 
-			outR, outW, _ := os.Pipe()
-			errR, errW, _ := os.Pipe()
-			os.Stdout = outW
-			os.Stderr = errW
+			// Call the function with buffer
+			PrintCategoryExclusions(&buffer, tt.categoryID)
 
-			// Call the function
-			PrintCategoryExclusions(tt.categoryID)
-
-			// Restore stdout/stderr and read output
-			outW.Close()
-			errW.Close()
-			os.Stdout = originalStdout
-			os.Stderr = originalStderr
-
-			outBuffer.ReadFrom(outR)
-			errBuffer.ReadFrom(errR)
-
-			output := outBuffer.String()
-			errOutput := errBuffer.String()
+			output := buffer.String()
 
 			if tt.shouldError {
-				if errOutput == "" {
-					t.Error("Expected error output for invalid category")
+				if !strings.Contains(output, "not found") {
+					t.Error("Expected error message for invalid category")
 				}
-				if !strings.Contains(errOutput, tt.categoryID) {
+				if !strings.Contains(output, tt.categoryID) {
 					t.Errorf("Error output should mention category %s", tt.categoryID)
 				}
 			} else {
