@@ -252,7 +252,7 @@ func New(patterns []string) *Filter {
 }
 
 // NewWithDefaults creates a new Filter with default exclusions plus additional patterns
-func NewWithDefaults(additionalPatterns []string, disabledCategoryIDs []string) *Filter {
+func NewWithDefaults(additionalPatterns, disabledCategoryIDs []string) *Filter {
 	defaultPatterns := GetFilteredPatterns(disabledCategoryIDs)
 	patterns := make([]string, 0, len(defaultPatterns)+len(additionalPatterns))
 	patterns = append(patterns, defaultPatterns...)
@@ -352,18 +352,19 @@ func PrintPatternsOnly(w io.Writer) {
 // PrintCategoryExclusions prints exclusions for a specific category ID
 func PrintCategoryExclusions(w io.Writer, categoryID string) {
 	for _, category := range exclusionCategories {
-		if category.ID == categoryID {
-			// Sort patterns for consistent output
-			patterns := make([]string, len(category.Patterns))
-			copy(patterns, category.Patterns)
-			sort.Strings(patterns)
-
-			// Print each pattern on its own line
-			for _, pattern := range patterns {
-				fmt.Fprintln(w, pattern)
-			}
-			return
+		if category.ID != categoryID {
+			continue
 		}
+		// Sort patterns for consistent output
+		patterns := make([]string, len(category.Patterns))
+		copy(patterns, category.Patterns)
+		sort.Strings(patterns)
+
+		// Print each pattern on its own line
+		for _, pattern := range patterns {
+			fmt.Fprintln(w, pattern)
+		}
+		return
 	}
 	// This shouldn't happen due to validation, but just in case
 	fmt.Fprintf(w, "Category %s not found\n", categoryID)

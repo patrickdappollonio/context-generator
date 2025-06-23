@@ -2,6 +2,7 @@ package scanner
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -70,7 +71,10 @@ func (s *Scanner) Scan(directory string) error {
 	// Write the final line of dashes
 	fmt.Fprintln(s.writer, separator)
 
-	return err
+	if err != nil {
+		return fmt.Errorf("error walking directory %q: %w", absDir, err)
+	}
+	return nil
 }
 
 // processFile reads and outputs a single file if it's a text file
@@ -78,20 +82,20 @@ func (s *Scanner) processFile(path, baseDir string) error {
 	// Open the file for reading
 	file, err := os.Open(path)
 	if err != nil {
-		return err
+		return fmt.Errorf("error opening file %q: %w", path, err)
 	}
 	defer file.Close()
 
 	// Read the first 512 bytes to detect content type
 	buffer := make([]byte, 512)
 	n, err := file.Read(buffer)
-	if err != nil && err != io.EOF {
-		return err
+	if err != nil && !errors.Is(err, io.EOF) {
+		return fmt.Errorf("error reading file %q: %w", path, err)
 	}
 
 	// Reset the file pointer to the beginning
 	if _, err := file.Seek(0, io.SeekStart); err != nil {
-		return err
+		return fmt.Errorf("error seeking to beginning of file %q: %w", path, err)
 	}
 
 	// Detect content type
@@ -204,7 +208,7 @@ func (s *Scanner) DryRun(directory string) error {
 		return nil
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("error walking directory %q: %w", absDir, err)
 	}
 
 	// Print the results
@@ -223,7 +227,7 @@ func (s *Scanner) isTextFile(path string) bool {
 	// Read the first 512 bytes to detect content type
 	buffer := make([]byte, 512)
 	n, err := file.Read(buffer)
-	if err != nil && err != io.EOF {
+	if err != nil && !errors.Is(err, io.EOF) {
 		return false
 	}
 
@@ -346,7 +350,7 @@ func (s *Scanner) sortTreeChildren(node *TreeNode) {
 }
 
 // printFileTree recursively prints the tree structure
-func (s *Scanner) printFileTree(node *TreeNode, prefix string, isLast bool, showReasons bool) {
+func (s *Scanner) printFileTree(node *TreeNode, prefix string, isLast, showReasons bool) {
 	if node.Name != "" { // Don't print the root node
 		s.printTreeNode(node, prefix, isLast, showReasons)
 	}
@@ -371,7 +375,7 @@ func (s *Scanner) printFileTree(node *TreeNode, prefix string, isLast bool, show
 }
 
 // printTreeNode prints a single tree node with appropriate formatting
-func (s *Scanner) printTreeNode(node *TreeNode, prefix string, isLast bool, showReason bool) {
+func (s *Scanner) printTreeNode(node *TreeNode, prefix string, isLast, showReason bool) {
 	var treeChar string
 	if isLast {
 		treeChar = "└── "

@@ -36,7 +36,7 @@ func NewRootCommandWithVersion(version string) *cobra.Command {
 		Args:          cobra.MaximumNArgs(1),
 		SilenceErrors: true,
 		SilenceUsage:  true,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			// Determine the directory to scan (default to current directory)
 			directory := "."
 			if len(args) > 0 {
@@ -77,23 +77,24 @@ func NewRootCommandWithVersion(version string) *cobra.Command {
 	listCmd := &cobra.Command{
 		Use:   "list-exclusions",
 		Short: "List all default exclusions organized by category",
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			categoryFilter, _ := cmd.Flags().GetString("category")
 			patternsOnly, _ := cmd.Flags().GetBool("patterns-only")
 
-			if categoryFilter != "" {
+			switch {
+			case categoryFilter != "":
 				// Validate the category ID
 				invalid := filter.ValidateCategoryIDs([]string{categoryFilter})
 				if len(invalid) > 0 {
-					fmt.Fprintf(os.Stderr, "Error: invalid category ID: %s. Use 'list-exclusions' to see valid IDs\n", categoryFilter)
-					os.Exit(1)
+					return fmt.Errorf("invalid category ID: %s. Use \"list-exclusions\" to see valid IDs", categoryFilter)
 				}
 				filter.PrintCategoryExclusions(os.Stdout, categoryFilter)
-			} else if patternsOnly {
+			case patternsOnly:
 				filter.PrintPatternsOnly(os.Stdout)
-			} else {
+			default:
 				filter.PrintExclusions(os.Stdout)
 			}
+			return nil
 		},
 	}
 	listCmd.Flags().String("category", "", "show patterns for a specific category ID only")
