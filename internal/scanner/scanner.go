@@ -119,16 +119,26 @@ func (s *Scanner) processFile(path, baseDir string) error {
 	// Write the second line of dashes
 	fmt.Fprintln(s.writer, separator)
 
-	// Create a scanner to read the file line by line
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		// Write each line with 4 spaces indentation
-		fmt.Fprintf(s.writer, "    %s\n", scanner.Text())
-	}
+	// Create a buffered reader to handle lines of any length
+	reader := bufio.NewReader(file)
 
-	// Check for errors during scanning
-	if err := scanner.Err(); err != nil {
-		return fmt.Errorf("error reading file %q: %w", path, err)
+	for {
+		// ReadString reads until the delimiter ('\n') and can handle lines of any length
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			// If we hit EOF and still have content, process the last line
+			if errors.Is(err, io.EOF) && line != "" {
+				// Remove trailing newline if present (ReadString includes the delimiter)
+				line = strings.TrimSuffix(line, "\n")
+				fmt.Fprintf(s.writer, "    %s\n", line)
+			}
+			break
+		}
+
+		// Remove trailing newline (ReadString includes the delimiter)
+		line = strings.TrimSuffix(line, "\n")
+		// Write each line with 4 spaces indentation
+		fmt.Fprintf(s.writer, "    %s\n", line)
 	}
 
 	return nil
