@@ -5,7 +5,7 @@
 //! and the list-exclusions subcommand.
 
 use crate::filter::{
-    print_category_exclusions, print_exclusions, print_patterns_only, validate_category_ids, Filter,
+    Filter, print_category_exclusions, print_exclusions, print_patterns_only, validate_category_ids,
 };
 use crate::scanner::Scanner;
 use clap::{Parser, Subcommand};
