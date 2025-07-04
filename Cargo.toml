@@ -1,7 +1,8 @@
 [package]
 name = "context-generator"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
+rust-version = "1.88"
 description = "A command-line tool that generates copy-pastable context from your source code"
 authors = ["Patrick D'appollonio <hey@patrickdap.com>"]
 license = "MIT"

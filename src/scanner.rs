@@ -130,7 +130,7 @@ impl Scanner {
         if abs_dir.is_file() {
             // Use the file itself as the base directory to match Go's filepath.Walk behavior
             self.process_file(&abs_dir, &abs_dir, writer)?;
-            writeln!(writer, "{}", SEPARATOR)?;
+            writeln!(writer, "{SEPARATOR}")?;
             return Ok(());
         }
 
@@ -153,7 +153,7 @@ impl Scanner {
             }
         }
 
-        writeln!(writer, "{}", SEPARATOR)?;
+        writeln!(writer, "{SEPARATOR}")?;
         Ok(())
     }
 
@@ -284,9 +284,9 @@ impl Scanner {
         // If rel_path is empty (happens when path == base_dir), use "." like Go does
         let display_path = if rel_path.is_empty() { "." } else { &rel_path };
 
-        writeln!(writer, "{}", SEPARATOR)?;
-        writeln!(writer, "file: {}", display_path)?;
-        writeln!(writer, "{}", SEPARATOR)?;
+        writeln!(writer, "{SEPARATOR}")?;
+        writeln!(writer, "file: {display_path}")?;
+        writeln!(writer, "{SEPARATOR}")?;
 
         let file = File::open(path)
             .map_err(|e| anyhow::anyhow!("Error opening file {:?}: {}", path, e))?;
@@ -294,7 +294,7 @@ impl Scanner {
 
         for line in reader.lines() {
             let line = line.map_err(|e| anyhow::anyhow!("Error reading file {:?}: {}", path, e))?;
-            writeln!(writer, "    {}", line)?;
+            writeln!(writer, "    {line}")?;
         }
 
         Ok(())
@@ -458,9 +458,9 @@ impl Scanner {
             let child_prefix = if node.name.is_empty() {
                 "  ".to_string()
             } else if is_last {
-                format!("{}    ", prefix)
+                format!("{prefix}    ")
             } else {
-                format!("{}│   ", prefix)
+                format!("{prefix}│   ")
             };
 
             self.print_file_tree(child, &child_prefix, is_last_child, show_reasons, writer)?;
@@ -490,7 +490,7 @@ impl Scanner {
             name.push('/');
         }
 
-        write!(writer, "{}{}{}", prefix, tree_char, name)?;
+        write!(writer, "{prefix}{tree_char}{name}")?;
 
         if show_reason {
             if let Some(file) = &node.file {

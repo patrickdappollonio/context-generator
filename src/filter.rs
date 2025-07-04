@@ -333,7 +333,7 @@ pub fn get_exclusion_categories() -> Vec<ExclusionCategory> {
     match load_exclusion_data() {
         Ok(data) => data.categories,
         Err(e) => {
-            eprintln!("Warning: Failed to load exclusion categories: {}", e);
+            eprintln!("Warning: Failed to load exclusion categories: {e}");
             Vec::new()
         }
     }
@@ -518,7 +518,7 @@ pub fn print_exclusions<W: std::io::Write>(writer: &mut W) -> std::io::Result<()
         patterns.sort();
 
         for pattern in patterns {
-            writeln!(writer, "  {}", pattern)?;
+            writeln!(writer, "  {pattern}")?;
         }
     }
 
@@ -601,10 +601,10 @@ pub fn print_patterns_only<W: std::io::Write>(writer: &mut W) -> std::io::Result
     literals.sort();
 
     for pattern in wildcards {
-        writeln!(writer, "{}", pattern)?;
+        writeln!(writer, "{pattern}")?;
     }
     for pattern in literals {
-        writeln!(writer, "{}", pattern)?;
+        writeln!(writer, "{pattern}")?;
     }
 
     Ok(())
@@ -652,13 +652,13 @@ pub fn print_category_exclusions<W: std::io::Write>(
             patterns.sort();
 
             for pattern in patterns {
-                writeln!(writer, "{}", pattern)?;
+                writeln!(writer, "{pattern}")?;
             }
             return Ok(());
         }
     }
 
-    writeln!(writer, "Category {} not found", category_id)?;
+    writeln!(writer, "Category {category_id} not found")?;
     Ok(())
 }
 

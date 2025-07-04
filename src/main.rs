@@ -15,7 +15,7 @@ use std::process;
 /// handling any errors by printing them to stderr and exiting with status code 1.
 fn main() {
     if let Err(e) = cli::run_cli() {
-        eprintln!("Error: {}", e);
+        eprintln!("Error: {e}");
         process::exit(1);
     }
 }
