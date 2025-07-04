@@ -1,0 +1,348 @@
+# This file defines common patterns for excluding files and directories in
+# various programming languages and environments.
+# To add a new category, define a unique id, name, description, and a list of
+# patterns at the bottom of this file.
+# All contributions are welcome!
+categories:
+  - id: vcs
+    name: Version Control
+    description: Version control system files and directories
+    patterns:
+      - .git
+      - .svn
+      - .hg
+      - .bzr
+      - CVS
+      - _darcs
+      - .fossil-settings
+
+  - id: deps
+    name: Dependencies
+    description: Package manager dependencies and vendor directories
+    patterns:
+      - node_modules
+      - vendor
+      - bower_components
+      - jspm_packages
+      - .bundle
+      - Godeps
+
+  - id: build
+    name: Build Artifacts
+    description: Build outputs, compiled binaries, and generated files
+    patterns:
+      - target
+      - build
+      - dist
+      - out
+      - bin
+      - obj
+      - "*.exe"
+      - "*.dll"
+      - "*.so"
+      - "*.dylib"
+      - "*.app"
+      - "*.deb"
+      - "*.rpm"
+      - "*.msi"
+      - "*.dmg"
+      - "*.pkg"
+      - "*.tar.gz"
+      - "*.zip"
+      - "*.rar"
+      - "*.7z"
+
+  - id: go
+    name: Go Specific
+    description: Go language specific files and build artifacts
+    patterns:
+      - go.sum
+      - "*.test"
+      - coverage.out
+      - "*.prof"
+      - "*.cover"
+      - go.work.sum
+
+  - id: js
+    name: JavaScript/Node.js
+    description: JavaScript and Node.js specific files
+    patterns:
+      - "*.min.js"
+      - "*.min.css"
+      - "*.min.map"
+      - .nyc_output
+      - coverage
+      - .next
+      - .nuxt
+      - .vuepress/dist
+      - .docusaurus
+
+  - id: python
+    name: Python
+    description: Python specific files and directories
+    patterns:
+      - __pycache__
+      - "*.pyc"
+      - "*.pyo"
+      - "*.pyd"
+      - ".Python"
+      - pip-log.txt
+      - pip-delete-this-directory.txt
+      - .tox
+      - .nox
+      - .coverage
+      - .pytest_cache
+      - .venv
+      - env
+      - venv
+      - ENV
+      - .env
+      - .mypy_cache
+      - .dmypy.json
+      - dmypy.json
+
+  - id: python-ds
+    name: Python Data Science
+    description: Python data science and machine learning files
+    patterns:
+      - .ipynb_checkpoints
+      - "*.pkl"
+      - "*.pickle"
+      - "*.joblib"
+      - "*.h5"
+      - "*.hdf5"
+      - "*.npy"
+      - "*.npz"
+      - "*.mat"
+      - "*.csv"
+      - "*.tsv"
+      - "*.parquet"
+      - "*.feather"
+      - .wandb
+      - wandb
+      - mlruns
+      - .mlflow
+
+  - id: typescript
+    name: TypeScript
+    description: TypeScript specific files
+    patterns:
+      - "*.tsbuildinfo"
+      - "*.d.ts.map"
+      - "*.js.map"
+      - "*.jsx.map"
+      - "*.ts.map"
+      - "*.tsx.map"
+
+  - id: php
+    name: PHP
+    description: PHP specific files
+    patterns:
+      - composer.lock
+      - "*.phar"
+      - .phpunit.result.cache
+      - vendor
+
+  - id: java
+    name: Java
+    description: Java specific files and directories
+    patterns:
+      - "*.class"
+      - "*.jar"
+      - "*.war"
+      - "*.ear"
+      - "*.aar"
+      - .gradle
+      - gradle
+      - .mvn
+      - target
+      - build
+      - out
+      - .settings
+      - .project
+      - .classpath
+      - .factorypath
+      - .buildpath
+
+  - id: c
+    name: C/C++
+    description: C and C++ specific files
+    patterns:
+      - "*.o"
+      - "*.obj"
+      - "*.a"
+      - "*.lib"
+      - "*.so"
+      - "*.dll"
+      - "*.dylib"
+      - "*.exe"
+      - "*.out"
+      - "*.app"
+      - "*.i"
+      - "*.ii"
+      - "*.s"
+      - "*.su"
+      - "*.pdb"
+      - "*.ilk"
+      - "*.map"
+      - "*.exp"
+      - cmake-build-*
+      - CMakeFiles
+      - CMakeCache.txt
+      - Makefile
+      - "*.make"
+
+  - id: rust
+    name: Rust
+    description: Rust specific files
+    patterns:
+      - Cargo.lock
+
+  - id: ruby
+    name: Ruby
+    description: Ruby specific files
+    patterns:
+      - Gemfile.lock
+      - "*.gem"
+      - .bundle
+      - vendor/bundle
+      - vendor/cache
+      - .rbenv-version
+      - .ruby-version
+      - .ruby-gemset
+      - .rvmrc
+
+  - id: swift
+    name: Swift
+    description: Swift and iOS specific files
+    patterns:
+      - "*.xcworkspace"
+      - "*.xcodeproj"
+      - "*.xcuserdata"
+      - "*.xccheckout"
+      - "*.moved-aside"
+      - DerivedData
+      - .build
+      - Carthage/Build
+      - fastlane/report.xml
+      - fastlane/Preview.html
+      - fastlane/screenshots
+      - fastlane/test_output
+
+  - id: kotlin
+    name: Kotlin
+    description: Kotlin specific files
+    patterns:
+      - "*.kt~"
+      - "*.kts~"
+      - .kotlin
+      - build
+      - out
+
+  - id: latex
+    name: LaTeX
+    description: LaTeX document preparation files
+    patterns:
+      - "*.aux"
+      - "*.bbl"
+      - "*.bcf"
+      - "*.blg"
+      - "*.fdb_latexmk"
+      - "*.fls"
+      - "*.log"
+      - "*.out"
+      - "*.run.xml"
+      - "*.synctex.gz"
+      - "*.toc"
+      - "*.nav"
+      - "*.snm"
+      - "*.vrb"
+      - "*.fdb_latexmk"
+      - "*.figlist"
+      - "*.makefile"
+      - "*.figlist"
+      - "*.makefile"
+
+  - id: logs
+    name: Logs & Temporary
+    description: Log files, temporary files, and cache directories
+    patterns:
+      - "*.log"
+      - "*.tmp"
+      - "*.temp"
+      - "*.cache"
+      - "*.bak"
+      - "*.backup"
+      - "*.swp"
+      - "*.swo"
+      - "*.swn"
+      - "*~"
+      - ".DS_Store"
+      - Thumbs.db
+      - ehthumbs.db
+      - Desktop.ini
+      - .directory
+      - .Trash-*
+      - .nfs*
+
+  - id: env
+    name: Environment & Config
+    description: Environment variables, secrets, and sensitive config files
+    patterns:
+      - .env
+      - .env.*
+      - "*.pem"
+      - "*.key"
+      - "*.p12"
+      - "*.pfx"
+      - "*.cer"
+      - "*.crt"
+      - "*.der"
+      - "*.jks"
+      - "*.keystore"
+      - "*.truststore"
+      - .dockerignore
+      - docker-compose.override.yml
+      - .netrc
+      - .npmrc
+      - .yarnrc
+
+  - id: ide
+    name: IDE & Editors
+    description: IDE and text editor specific files
+    patterns:
+      - .vscode
+      - .idea
+      - "*.swp"
+      - "*.swo"
+      - "*.swn"
+      - "*~"
+      - ".#*"
+      - ".DS_Store"
+      - Thumbs.db
+      - .sublime-project
+      - .sublime-workspace
+      - "*.tmproj"
+      - "*.tmproject"
+      - tmtags
+      - .vim
+      - .netrwhist
+      - Session.vim
+      - .lvimrc
+
+  - id: docs
+    name: Documentation
+    description: Generated documentation and static site files
+    patterns:
+      - _site
+      - .sass-cache
+      - .jekyll-cache
+      - .jekyll-metadata
+      - docs/_build
+      - docs/build
+      - site
+      - public
+      - .vuepress/dist
+      - .docusaurus
+      - .storybook-out
+      - storybook-static

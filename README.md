@@ -1,6 +1,6 @@
 # Context Generator
 
-A command-line tool that generates copy-pastable context from your source code, perfect for providing to AI assistants like ChatGPT, Claude, or Copilot.
+A fast, efficient command-line tool written in Rust that generates copy-pastable context from your source code, perfect for providing to AI assistants like ChatGPT, Claude, or Copilot.
 
 ## What It Does
 
@@ -10,26 +10,38 @@ A command-line tool that generates copy-pastable context from your source code, 
 
 When working with AI assistants on coding projects, you often need to provide file contents for context. Instead of manually copying and pasting multiple files, Context Generator:
 
-- **Automates the process** - Scans entire directories in seconds
+- **Automates the process** - Scans entire directories in milliseconds
 - **Smart filtering** - Excludes binary files, build artifacts, and common junk automatically
 - **Highly configurable** - Customize exclusions with wildcards and patterns
 - **AI-optimized format** - Outputs in a clear, structured format that AI tools understand perfectly
 - **Universal compatibility** - Works with any AI that accepts text input
+- **Memory efficient** - Built in Rust for optimal performance and safety
 
 ## Installation
+
+### From Releases (Recommended)
+
+Download a pre-built binary from the [releases page](https://github.com/patrickdappollonio/context-generator/releases/latest):
+
+- **Linux x86_64**: `context-generator-linux-x86_64.tar.gz`
+- **Linux ARM64**: `context-generator-linux-arm64.tar.gz`
+- **macOS x86_64**: `context-generator-darwin-x86_64.tar.gz`
+- **macOS ARM64 (M+)**: `context-generator-darwin-arm64.tar.gz`
+- **Windows x86_64**: `context-generator-windows-x86_64.zip`
 
 ### From Source
 
 ```bash
 git clone https://github.com/patrickdappollonio/context-generator.git
 cd context-generator
-go build -o context-generator
+cargo build --release
+# Binary will be at target/release/context-generator
 ```
 
-### Using Go Install
+### Using Cargo
 
 ```bash
-go install github.com/patrickdappollonio/context-generator@latest
+cargo install --git https://github.com/patrickdappollonio/context-generator
 ```
 
 ## Usage
@@ -83,19 +95,24 @@ context-generator list-exclusions | grep "\.log"          # Find log-related pat
 ## Command-Line Options
 
 ```
-Usage:
-  context-generator [directory] [flags]
-  context-generator [command]
+Generate copy-pastable context from your source code for AI assistants
 
-Available Commands:
-  list-exclusions List all default exclusions organized by category
+Usage: context-generator [OPTIONS] [DIRECTORY] [COMMAND]
 
-Flags:
-      --disable-category strings   disable default exclusion categories by ID
-      --dry-run                    show files that would be processed and excluded without generating output
-      --exclude strings            exclude files/folders matching these patterns (supports wildcards)
-      --no-defaults                disable default exclusions
-  -h, --help                       help for context-generator
+Commands:
+  list-exclusions  List all default exclusions organized by category
+  help             Print this message or the help of the given subcommand(s)
+
+Arguments:
+  [DIRECTORY]  Directory to scan (defaults to current directory)
+
+Options:
+      --exclude <PATTERN>      Exclude files/folders matching these patterns (supports wildcards)
+      --disable-category <ID>  Disable default exclusion categories by ID (use list-exclusions to see IDs)
+      --no-defaults            Disable default exclusions
+      --dry-run                Show files that would be processed and excluded without generating output
+  -h, --help                   Print help
+  -V, --version                Print version
 ```
 
 ### Dry-Run Mode
@@ -112,26 +129,20 @@ The dry-run output shows:
 2. **Files that would be excluded** - With the specific category and pattern that caused the exclusion
 
 **Example Output:**
-```
+```bash
 $ context-generator --dry-run src/
 
 Dry run for directory: src/
 
 Files that would be processed:
-  ├── components/
-  ├── utils/
-  ├── App.tsx
-  └── main.ts
-  components/
-    ├── Button.tsx
-    └── Header.tsx
-  utils/
-    └── helpers.ts
+  ├── cli.rs
+  ├── filter.rs
+  ├── lib.rs
+  ├── main.rs
+  └── scanner.rs
 
 Files that would be excluded:
-  ├── build/ [Build Artifacts: build]
-  ├── node_modules/ [Dependencies: node_modules]
-  └── app.log [Logs & Temporary: *.log]
+  (none)
 ```
 
 ### Wildcard Patterns
@@ -254,23 +265,27 @@ The tool generates output in this format:
 
 ```
 --------------------
-file: src/main.go
+file: src/main.rs
 --------------------
-    package main
+    use cli::run_cli;
+    use std::process;
 
-    import "fmt"
+    mod cli;
+    mod filter;
+    mod scanner;
 
-    func main() {
-        fmt.Println("Hello, World!")
+    fn main() {
+        if let Err(e) = run_cli() {
+            eprintln!("Error: {}", e);
+            process::exit(1);
+        }
     }
 --------------------
-file: src/utils.go
+file: src/cli.rs
 --------------------
-    package main
-
-    func helper() string {
-        return "helper function"
-    }
+    use clap::{Parser, Subcommand};
+    use std::io;
+    // ... rest of file content
 --------------------
 ```
 
@@ -289,11 +304,10 @@ Perfect for various AI-assisted development scenarios:
 ## Tips for AI Interaction
 
 1. **Preview First**: Use `--dry-run` to verify you're including the right files before generating context
-2. **Be Specific**: After pasting the context, ask specific questions about the code
-3. **Mention File Names**: Reference specific files when asking questions
-4. **Update Context**: Re-run the tool when your code changes significantly
-5. **Size Awareness**: Very large codebases might hit AI token limits - use exclusions to focus on relevant parts
-6. **Use Categories**: Disable specific categories (like `logs` or `build`) to focus on source code
+2. **Mention File Names**: Reference specific files when asking questions
+3. **Update Context**: Re-run the tool when your code changes significantly
+4. **Size Awareness**: Very large codebases might hit AI token limits - use exclusions to focus on relevant parts
+5. **Use Categories**: Disable specific categories (like `logs` or `build`) to focus on source code
 
 ## Command-Line Integration
 
@@ -326,7 +340,7 @@ context-generator list-exclusions --patterns-only | wc -l
 context-generator --no-defaults | grep "^file:" | wc -l
 
 # Combine with other tools
-context-generator | grep -A5 "file: main.go"
+context-generator | grep -A5 "file: main.rs"
 
 # Use category patterns in shell scripts
 for pattern in $(context-generator list-exclusions --category logs); do
@@ -338,9 +352,91 @@ echo "# Generated exclusions" > .gitignore
 context-generator list-exclusions --patterns-only >> .gitignore
 ```
 
+## Performance
+
+Context Generator is built in Rust for optimal performance:
+
+- **Fast scanning** - Processes large codebases in milliseconds
+- **Memory efficient** - Minimal memory usage even on huge projects
+- **Small binary** - Single ~800KB executable with no dependencies
+- **Cross-platform** - Available for Linux, macOS, and Windows
+
 ## Contributing
 
-Contributions are welcome! The exclusion categories are organized in `internal/filter/filter.go` making it easy to add new patterns for additional languages or tools.
+Contributions are welcome! We especially encourage contributions to expand language support and exclusion patterns.
+
+### Adding New Exclusion Categories
+
+The exclusion categories are defined in `exclusions.yaml` in the root directory. This makes it easy for developers of any language to contribute new patterns without needing Rust knowledge.
+
+To add a new exclusion category:
+
+1. **Edit `exclusions.yaml`** - Add your new category following this structure, at the bottom of the file:
+
+```yaml
+- id: your-language-id
+  name: Your Language Name
+  description: Brief description of what files this category excludes
+  patterns:
+    - "*.your-ext"
+    - "build-dir"
+    - "*.generated"
+```
+
+2. **Test your changes** - Run the tool to verify your patterns work:
+
+```bash
+# Build and test
+cargo build --release
+
+# Test your new category
+./target/release/context-generator list-exclusions --category your-language-id
+
+# Test exclusions work as expected
+./target/release/context-generator --dry-run /path/to/test/project
+```
+
+3. **Submit a pull request** - Your contribution will be automatically embedded in the binary at compile time.
+
+### Exclusion Category Guidelines
+
+- **Use descriptive IDs**: Short, lowercase, hyphen-separated (e.g., `python-ds`, `web-frameworks`)
+- **Clear descriptions**: Explain what type of files are excluded
+- **Comprehensive patterns**: Include common file extensions, directories, and build artifacts
+- **Test thoroughly**: Ensure patterns work with real projects in that language/framework
+
+### Examples of Good Contributions
+
+```yaml
+# Good: Comprehensive mobile development category
+- id: flutter
+  name: Flutter
+  description: Flutter mobile development framework files
+  patterns:
+    - "*.g.dart"
+    - "*.freezed.dart"
+    - "*.mocks.dart"
+    - ".flutter-plugins"
+    - ".flutter-plugins-dependencies"
+    - "build/"
+    - ".dart_tool/"
+    - "ios/Flutter/Generated.xcconfig"
+    - "ios/Flutter/flutter_export_environment.sh"
+
+# Good: Specific build system category
+- id: cmake
+  name: CMake
+  description: CMake build system files
+  patterns:
+    - "CMakeCache.txt"
+    - "CMakeFiles/"
+    - "cmake_install.cmake"
+    - "install_manifest.txt"
+    - "*.cmake"
+    - "build/"
+```
+
+The YAML format is embedded at compile time, so there's no runtime performance cost and the binary remains self-contained.
 
 ---
 
@@ -350,16 +446,16 @@ Contributions are welcome! The exclusion categories are organized in `internal/f
 
 ```
 context-generator/
-├── cmd/
-│   └── root.go          # CLI command setup
-├── internal/
-│   ├── filter/
-│   │   └── filter.go    # Exclusion logic with wildcards
-│   └── scanner/
-│       └── scanner.go   # File scanning and processing
-├── main.go              # Application entry point
-├── go.mod
-├── go.sum
+├── src/
+│   ├── cli.rs           # CLI command setup with clap
+│   ├── filter.rs        # Exclusion logic and YAML parsing
+│   ├── lib.rs           # Library exports
+│   ├── main.rs          # Application entry point
+│   └── scanner.rs       # File scanning and processing
+├── exclusions.yaml      # Exclusion categories and patterns (embedded at compile time)
+├── Cargo.toml           # Rust project configuration
+├── Cargo.lock           # Dependency lock file
+├── Dockerfile           # Container build instructions
 └── README.md
 ```
 
