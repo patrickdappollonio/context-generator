@@ -1,5 +1,7 @@
 # Context Generator
 
+[![Github Downloads](https://img.shields.io/github/downloads/patrickdappollonio/context-generator/total?color=orange&label=github%20downloads)](https://github.com/patrickdappollonio/context-generator/releases)
+
 A fast, efficient command-line tool written in Rust that generates copy-pastable context from your source code, perfect for providing to AI assistants like ChatGPT, Claude, or Copilot.
 
 ## What It Does
