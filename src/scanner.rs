@@ -6,7 +6,6 @@
 //! and dry-run mode for previewing what files would be processed.
 
 use crate::filter::{ExclusionReason, Filter};
-use mime_guess::mime;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::Path;
@@ -305,17 +304,18 @@ impl Scanner {
         let mut file = File::open(path)
             .map_err(|e| anyhow::anyhow!("Error opening file {:?}: {}", path, e))?;
 
-        let mut buffer = [0u8; 512];
+        let mut buffer = [0u8; 1024]; // content_inspector recommends at least 1024 bytes
         let n = file
             .read(&mut buffer)
             .map_err(|e| anyhow::anyhow!("Error reading file {:?}: {}", path, e))?;
 
         if n == 0 {
-            return Ok(true);
+            return Ok(true); // Empty files are considered text
         }
 
-        let mime = mime_guess::from_path(path).first_or_octet_stream();
-        Ok(mime.type_() == mime::TEXT)
+        // Use content_inspector for robust binary vs text detection
+        let content_type = content_inspector::inspect(&buffer[..n]);
+        Ok(content_type.is_text())
     }
 
     fn print_dry_run_results<W: Write>(
