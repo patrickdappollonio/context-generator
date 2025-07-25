@@ -6,7 +6,6 @@
 //! and dry-run mode for previewing what files would be processed.
 
 use crate::filter::{ExclusionReason, Filter};
-use mime_guess::mime;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::Path;
@@ -230,6 +229,7 @@ impl Scanner {
                 .to_string_lossy()
                 .to_string();
 
+            // First check if excluded by filter patterns
             if let Some(reason) =
                 self.filter
                     .get_exclusion_reason(path, &abs_dir, entry.file_type().is_dir())
@@ -237,24 +237,32 @@ impl Scanner {
                 excluded_files.push(FileInfo {
                     rel_path,
                     is_dir: entry.file_type().is_dir(),
-                    is_text: false,
-                    excluded: true,
                     reason: Some(reason),
                 });
                 continue;
             }
 
-            let is_text = if entry.file_type().is_file() {
-                self.is_text_file(path)?
-            } else {
-                false
-            };
+            // For files, check if they're binary and should be excluded
+            if entry.file_type().is_file() {
+                let is_text = self.is_text_file(path)?;
+                if !is_text {
+                    // Binary files are excluded from processing
+                    excluded_files.push(FileInfo {
+                        rel_path,
+                        is_dir: false,
+                        reason: Some(ExclusionReason {
+                            category: "Binary File".to_string(),
+                            pattern: "binary content detected".to_string(),
+                        }),
+                    });
+                    continue;
+                }
+            }
 
+            // Only text files or directories make it to included_files
             included_files.push(FileInfo {
                 rel_path,
                 is_dir: entry.file_type().is_dir(),
-                is_text,
-                excluded: false,
                 reason: None,
             });
         }
@@ -305,17 +313,18 @@ impl Scanner {
         let mut file = File::open(path)
             .map_err(|e| anyhow::anyhow!("Error opening file {:?}: {}", path, e))?;
 
-        let mut buffer = [0u8; 512];
+        let mut buffer = [0u8; 1024]; // content_inspector recommends at least 1024 bytes
         let n = file
             .read(&mut buffer)
             .map_err(|e| anyhow::anyhow!("Error reading file {:?}: {}", path, e))?;
 
         if n == 0 {
-            return Ok(true);
+            return Ok(true); // Empty files are considered text
         }
 
-        let mime = mime_guess::from_path(path).first_or_octet_stream();
-        Ok(mime.type_() == mime::TEXT)
+        // Use content_inspector for robust binary vs text detection
+        let content_type = content_inspector::inspect(&buffer[..n]);
+        Ok(content_type.is_text())
     }
 
     fn print_dry_run_results<W: Write>(
@@ -483,9 +492,8 @@ impl Scanner {
         if let Some(file) = &node.file {
             if file.is_dir {
                 name.push('/');
-            } else if !file.is_text && !file.excluded {
-                name.push_str(" (binary, will be skipped)");
             }
+            // Removed binary file handling since binary files are now in excluded section
         } else if node.is_dir {
             name.push('/');
         }
@@ -509,8 +517,6 @@ impl Scanner {
 struct FileInfo {
     rel_path: String,
     is_dir: bool,
-    is_text: bool,
-    excluded: bool,
     reason: Option<ExclusionReason>,
 }
 
