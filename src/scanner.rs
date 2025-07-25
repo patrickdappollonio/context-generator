@@ -229,6 +229,7 @@ impl Scanner {
                 .to_string_lossy()
                 .to_string();
 
+            // First check if excluded by filter patterns
             if let Some(reason) =
                 self.filter
                     .get_exclusion_reason(path, &abs_dir, entry.file_type().is_dir())
@@ -236,24 +237,32 @@ impl Scanner {
                 excluded_files.push(FileInfo {
                     rel_path,
                     is_dir: entry.file_type().is_dir(),
-                    is_text: false,
-                    excluded: true,
                     reason: Some(reason),
                 });
                 continue;
             }
 
-            let is_text = if entry.file_type().is_file() {
-                self.is_text_file(path)?
-            } else {
-                false
-            };
+            // For files, check if they're binary and should be excluded
+            if entry.file_type().is_file() {
+                let is_text = self.is_text_file(path)?;
+                if !is_text {
+                    // Binary files are excluded from processing
+                    excluded_files.push(FileInfo {
+                        rel_path,
+                        is_dir: false,
+                        reason: Some(ExclusionReason {
+                            category: "Binary File".to_string(),
+                            pattern: "binary content detected".to_string(),
+                        }),
+                    });
+                    continue;
+                }
+            }
 
+            // Only text files or directories make it to included_files
             included_files.push(FileInfo {
                 rel_path,
                 is_dir: entry.file_type().is_dir(),
-                is_text,
-                excluded: false,
                 reason: None,
             });
         }
@@ -483,9 +492,8 @@ impl Scanner {
         if let Some(file) = &node.file {
             if file.is_dir {
                 name.push('/');
-            } else if !file.is_text && !file.excluded {
-                name.push_str(" (binary, will be skipped)");
             }
+            // Removed binary file handling since binary files are now in excluded section
         } else if node.is_dir {
             name.push('/');
         }
@@ -509,8 +517,6 @@ impl Scanner {
 struct FileInfo {
     rel_path: String,
     is_dir: bool,
-    is_text: bool,
-    excluded: bool,
     reason: Option<ExclusionReason>,
 }
 

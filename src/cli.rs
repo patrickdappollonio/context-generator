@@ -90,7 +90,7 @@ pub enum Commands {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```no_run
 /// use context_generator::cli::run_cli;
 ///
 /// // This would typically be called from main()
