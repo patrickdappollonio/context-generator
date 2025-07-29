@@ -7,6 +7,7 @@
 use crate::filter::{
     Filter, print_category_exclusions, print_exclusions, print_patterns_only, validate_category_ids,
 };
+use crate::importer::{ImportConfig, Importer};
 use crate::scanner::Scanner;
 use clap::{Parser, Subcommand};
 use std::io;
@@ -63,7 +64,8 @@ pub struct Cli {
 /// Available subcommands for the CLI.
 ///
 /// Currently supports the `list-exclusions` subcommand for exploring
-/// available exclusion categories and patterns.
+/// available exclusion categories and patterns, and the `import` subcommand
+/// for recreating file structures from context-generator output.
 #[derive(Subcommand)]
 pub enum Commands {
     /// List all default exclusions organized by category
@@ -75,6 +77,28 @@ pub enum Commands {
         /// Show only patterns ordered by category (wildcards first, then literals)
         #[arg(long)]
         patterns_only: bool,
+    },
+    /// Import context-generator output to recreate file structures
+    Import {
+        /// Input file containing context-generator output (use '-' for stdin)
+        #[arg(value_name = "FILE")]
+        input: Option<String>,
+
+        /// Output directory (defaults to current directory)
+        #[arg(short, long, value_name = "DIR")]
+        output_dir: Option<String>,
+
+        /// Preview what files would be created without actually writing them
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Overwrite existing files without prompting
+        #[arg(long)]
+        force: bool,
+
+        /// Skip files that already exist
+        #[arg(long)]
+        skip_existing: bool,
     },
 }
 
@@ -108,6 +132,21 @@ pub fn run_cli() -> anyhow::Result<()> {
             patterns_only,
         }) => {
             handle_list_exclusions(category.as_deref(), *patterns_only)?;
+        }
+        Some(Commands::Import {
+            input,
+            output_dir,
+            dry_run,
+            force,
+            skip_existing,
+        }) => {
+            handle_import_command(
+                input.as_deref(),
+                output_dir.as_deref(),
+                *dry_run,
+                *force,
+                *skip_existing,
+            )?;
         }
         None => {
             handle_main_command(&cli)?;
@@ -233,6 +272,104 @@ fn handle_main_command(cli: &Cli) -> anyhow::Result<()> {
         scanner.dry_run(directory, &mut stdout)?;
     } else {
         scanner.scan(directory, &mut stdout)?;
+    }
+
+    Ok(())
+}
+
+/// Handles the `import` subcommand.
+///
+/// This function processes the import subcommand to recreate file structures
+/// from context-generator output. It:
+/// 1. Validates input arguments
+/// 2. Creates an ImportConfig with the specified options
+/// 3. Executes the import operation
+/// 4. Reports results to the user
+///
+/// # Arguments
+///
+/// * `input` - Input file path or None for stdin ("-")
+/// * `output_dir` - Output directory or None for current directory
+/// * `dry_run` - Whether to preview without writing files
+/// * `force` - Whether to overwrite existing files
+/// * `skip_existing` - Whether to skip existing files instead of failing
+///
+/// # Returns
+///
+/// * `Ok(())` - Successfully completed import operation
+/// * `Err(anyhow::Error)` - Import failed or invalid arguments
+///
+/// # Examples
+///
+/// This function is called internally by the CLI parser and is not part of the public API.
+/// Use the CLI commands instead:
+///
+/// ```bash
+/// # Import from file
+/// context-generator import output.ctx --output-dir ./imported/
+///
+/// # Import from stdin
+/// cat output.ctx | context-generator import -
+///
+/// # Dry run to preview
+/// context-generator import output.ctx --dry-run
+/// ```
+fn handle_import_command(
+    input: Option<&str>,
+    output_dir: Option<&str>,
+    dry_run: bool,
+    force: bool,
+    skip_existing: bool,
+) -> anyhow::Result<()> {
+    // Determine input source
+    let input_path = input.unwrap_or("-");
+
+    // Validate conflicting options
+    if force && skip_existing {
+        return Err(anyhow::anyhow!(
+            "Cannot use both --force and --skip-existing options together"
+        ));
+    }
+
+    // Create import configuration
+    let config = ImportConfig {
+        output_dir: output_dir.unwrap_or(".").to_string(),
+        dry_run,
+        force,
+        skip_existing,
+    };
+
+    // Create importer and execute import
+    let importer = Importer::new(config);
+    let result = importer.import_from_path(input_path)?;
+
+    // Report results
+    if result.is_success() {
+        println!("{}", result.summary());
+
+        // Show warnings if any
+        if !result.warnings.is_empty() {
+            println!("\nWarnings:");
+            for warning in &result.warnings {
+                println!("  {warning}");
+            }
+        }
+    } else {
+        // Print errors
+        eprintln!("Import failed:");
+        for error in &result.errors {
+            eprintln!("  Error: {error}");
+        }
+
+        // Show warnings if any
+        if !result.warnings.is_empty() {
+            eprintln!("\nWarnings:");
+            for warning in &result.warnings {
+                eprintln!("  Warning: {warning}");
+            }
+        }
+
+        return Err(anyhow::anyhow!("Import operation failed"));
     }
 
     Ok(())
