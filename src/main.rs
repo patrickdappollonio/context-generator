@@ -4,8 +4,12 @@
 //! entry point that delegates to the CLI module for argument parsing and execution.
 
 mod cli;
+mod file_writer;
 mod filter;
+mod importer;
+mod parser;
 mod scanner;
+mod validation;
 
 use std::process;
 
