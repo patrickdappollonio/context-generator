@@ -92,6 +92,14 @@ context-generator --dry-run --disable-category go         # Preview with disable
 context-generator list-exclusions | grep -A5 "ID: go"     # Show Go-specific exclusions
 context-generator list-exclusions | grep "^\s\s" | wc -l  # Count total patterns
 context-generator list-exclusions | grep "\.log"          # Find log-related patterns
+
+# Import functionality - recreate file structures from context output
+context-generator import context.txt                       # Import from file to current directory
+context-generator import context.txt -o ./project         # Import to specific directory
+cat context.txt | context-generator import -              # Import from stdin
+context-generator import context.txt --dry-run            # Preview without creating files
+context-generator import context.txt --force              # Overwrite existing files
+context-generator import context.txt --skip-existing      # Skip files that already exist
 ```
 
 ## Command-Line Options
@@ -103,6 +111,7 @@ Usage: context-generator [OPTIONS] [DIRECTORY] [COMMAND]
 
 Commands:
   list-exclusions  List all default exclusions organized by category
+  import           Import context-generator output to recreate file structures
   help             Print this message or the help of the given subcommand(s)
 
 Arguments:
@@ -146,6 +155,53 @@ Files that would be processed:
 Files that would be excluded:
   (none)
 ```
+
+### Import Subcommand
+
+The `import` subcommand allows you to recreate file structures from context-generator output. This is useful for:
+
+- **Sharing code snippets** - Generate context, share it, and others can recreate the exact file structure
+- **Backup and restore** - Create portable backups of project structures
+- **Code review** - Send context to reviewers who can recreate files locally for testing
+- **Documentation** - Include runnable examples in documentation that can be easily recreated
+
+```bash
+# Basic import from file
+context-generator import output.txt
+
+# Import from file to specific directory
+context-generator import output.txt --output-dir ./imported-project
+
+# Import from stdin (useful with pipes)
+cat output.txt | context-generator import -
+context-generator | context-generator import -  # Round-trip: generate and import
+
+# Preview what would be created without writing files
+context-generator import output.txt --dry-run
+
+# Handle existing files
+context-generator import output.txt --force          # Overwrite existing files
+context-generator import output.txt --skip-existing  # Skip files that already exist
+
+# Combine with generation
+context-generator src/ > project-context.txt         # Generate context
+context-generator import project-context.txt -o ./backup  # Recreate elsewhere
+```
+
+**Import Options:**
+
+- `--output-dir` (`-o`) - Directory where files should be created (defaults to current directory)
+- `--dry-run` - Preview what files would be created without actually writing them
+- `--force` - Overwrite existing files without prompting
+- `--skip-existing` - Skip files that already exist instead of failing
+
+**Input Sources:**
+
+- File path: `context-generator import output.txt`
+- Stdin: `context-generator import -` or pipe directly
+- Any file containing context-generator output format
+
+The import command validates file paths for security (no absolute paths, no path traversal) and provides detailed feedback about what files were created, skipped, or encountered errors.
 
 ### Wildcard Patterns
 
@@ -303,6 +359,14 @@ Perfect for various AI-assisted development scenarios:
 - **Code Explanation**: Help others understand how your project works
 - **Refactoring**: Get suggestions for improving code structure across multiple files
 
+**Import-specific use cases:**
+
+- **Code Sharing**: Generate context from your project and share it with others who can recreate the exact file structure
+- **Backup & Restore**: Create portable, text-based backups of project structures that can be recreated anywhere
+- **Code Examples**: Include runnable code examples in documentation that readers can easily recreate locally
+- **Collaborative Development**: Share specific parts of a codebase for review or collaboration without sending entire repositories
+- **Educational Content**: Create reproducible code examples for tutorials, blog posts, or educational materials
+
 ## Tips for AI Interaction
 
 1. **Preview First**: Use `--dry-run` to verify you're including the right files before generating context
@@ -352,6 +416,27 @@ done
 # Create .gitignore from patterns
 echo "# Generated exclusions" > .gitignore
 context-generator list-exclusions --patterns-only >> .gitignore
+
+# Import workflow examples
+context-generator src/ > project-backup.txt              # Create backup
+context-generator import project-backup.txt -o ./restore # Restore backup
+
+# Share code structure via pipe
+context-generator src/ | ssh user@host 'context-generator import - -o ./shared-code'
+
+# Preview import without writing files
+context-generator import context.txt --dry-run | head -20
+
+# Batch import with error handling
+for ctx_file in *.ctx; do
+  echo "Importing $ctx_file..."
+  context-generator import "$ctx_file" -o "./imported/${ctx_file%.ctx}"
+done
+
+# Round-trip verification
+context-generator src/ > original.txt
+context-generator import original.txt -o ./copy
+diff -r src/ copy/  # Should be empty if successful
 ```
 
 ## Performance
