@@ -9,34 +9,53 @@ categories:
     description: Version control system files and directories
     patterns:
       - .git
+      - .git/**
       - .svn
+      - .svn/**
       - .hg
+      - .hg/**
       - .bzr
+      - .bzr/**
       - CVS
+      - CVS/**
       - _darcs
+      - _darcs/**
       - .fossil-settings
+      - .fossil-settings/**
 
   - id: deps
     name: Dependencies
     description: Package manager dependencies and vendor directories
     patterns:
       - node_modules
+      - node_modules/**
       - vendor
+      - vendor/**
       - bower_components
+      - bower_components/**
       - jspm_packages
+      - jspm_packages/**
       - .bundle
+      - .bundle/**
       - Godeps
+      - Godeps/**
 
   - id: build
     name: Build Artifacts
     description: Build outputs, compiled binaries, and generated files
     patterns:
       - target
+      - target/**
       - build
+      - build/**
       - dist
+      - dist/**
       - out
+      - out/**
       - bin
+      - bin/**
       - obj
+      - obj/**
       - "*.exe"
       - "*.dll"
       - "*.so"
@@ -71,17 +90,24 @@ categories:
       - "*.min.css"
       - "*.min.map"
       - .nyc_output
+      - .nyc_output/**
       - coverage
+      - coverage/**
       - .next
+      - .next/**
       - .nuxt
+      - .nuxt/**
       - .vuepress/dist
+      - .vuepress/dist/**
       - .docusaurus
+      - .docusaurus/**
 
   - id: python
     name: Python
     description: Python specific files and directories
     patterns:
       - __pycache__
+      - __pycache__/**
       - "*.pyc"
       - "*.pyo"
       - "*.pyd"
@@ -89,15 +115,24 @@ categories:
       - pip-log.txt
       - pip-delete-this-directory.txt
       - .tox
+      - .tox/**
       - .nox
+      - .nox/**
       - .coverage
+      - .coverage/**
       - .pytest_cache
+      - .pytest_cache/**
       - .venv
+      - .venv/**
       - env
+      - env/**
       - venv
+      - venv/**
       - ENV
+      - ENV/**
       - .env
       - .mypy_cache
+      - .mypy_cache/**
       - .dmypy.json
       - dmypy.json
 
@@ -106,6 +141,7 @@ categories:
     description: Python data science and machine learning files
     patterns:
       - .ipynb_checkpoints
+      - .ipynb_checkpoints/**
       - "*.pkl"
       - "*.pickle"
       - "*.joblib"
@@ -119,9 +155,13 @@ categories:
       - "*.parquet"
       - "*.feather"
       - .wandb
+      - .wandb/**
       - wandb
+      - wandb/**
       - mlruns
+      - mlruns/**
       - .mlflow
+      - .mlflow/**
 
   - id: typescript
     name: TypeScript
@@ -142,6 +182,7 @@ categories:
       - "*.phar"
       - .phpunit.result.cache
       - vendor
+      - vendor/**
 
   - id: java
     name: Java
@@ -153,16 +194,27 @@ categories:
       - "*.ear"
       - "*.aar"
       - .gradle
+      - .gradle/**
       - gradle
+      - gradle/**
       - .mvn
+      - .mvn/**
       - target
+      - target/**
       - build
+      - build/**
       - out
+      - out/**
       - .settings
+      - .settings/**
       - .project
+      - .project/**
       - .classpath
+      - .classpath/**
       - .factorypath
+      - .factorypath/**
       - .buildpath
+      - .buildpath/**
 
   - id: c
     name: C/C++
@@ -187,7 +239,9 @@ categories:
       - "*.map"
       - "*.exp"
       - cmake-build-*
+      - cmake-build-*/**
       - CMakeFiles
+      - CMakeFiles/**
       - CMakeCache.txt
       - Makefile
       - "*.make"
@@ -205,8 +259,11 @@ categories:
       - Gemfile.lock
       - "*.gem"
       - .bundle
+      - .bundle/**
       - vendor/bundle
+      - vendor/bundle/**
       - vendor/cache
+      - vendor/cache/**
       - .rbenv-version
       - .ruby-version
       - .ruby-gemset
@@ -217,13 +274,19 @@ categories:
     description: Swift and iOS specific files
     patterns:
       - "*.xcworkspace"
+      - "*.xcworkspace/**"
       - "*.xcodeproj"
+      - "*.xcodeproj/**"
       - "*.xcuserdata"
+      - "*.xcuserdata/**"
       - "*.xccheckout"
       - "*.moved-aside"
       - DerivedData
+      - DerivedData/**
       - .build
+      - .build/**
       - Carthage/Build
+      - Carthage/Build/**
       - fastlane/report.xml
       - fastlane/Preview.html
       - fastlane/screenshots
@@ -236,8 +299,11 @@ categories:
       - "*.kt~"
       - "*.kts~"
       - .kotlin
+      - .kotlin/**
       - build
+      - build/**
       - out
+      - out/**
 
   - id: latex
     name: LaTeX
@@ -312,7 +378,9 @@ categories:
     description: IDE and text editor specific files
     patterns:
       - .vscode
+      - .vscode/**
       - .idea
+      - .idea/**
       - "*.swp"
       - "*.swo"
       - "*.swn"
@@ -326,6 +394,7 @@ categories:
       - "*.tmproject"
       - tmtags
       - .vim
+      - .vim/**
       - .netrwhist
       - Session.vim
       - .lvimrc
@@ -335,14 +404,25 @@ categories:
     description: Generated documentation and static site files
     patterns:
       - _site
+      - _site/**
       - .sass-cache
+      - .sass-cache/**
       - .jekyll-cache
+      - .jekyll-cache/**
       - .jekyll-metadata
       - docs/_build
+      - docs/_build/**
       - docs/build
+      - docs/build/**
       - site
+      - site/**
       - public
+      - public/**
       - .vuepress/dist
+      - .vuepress/dist/**
       - .docusaurus
+      - .docusaurus/**
       - .storybook-out
+      - .storybook-out/**
       - storybook-static
+      - storybook-static/**

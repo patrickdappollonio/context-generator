@@ -203,14 +203,207 @@ context-generator import project-context.txt -o ./backup  # Recreate elsewhere
 
 The import command validates file paths for security (no absolute paths, no path traversal) and provides detailed feedback about what files were created, skipped, or encountered errors.
 
-### Wildcard Patterns
+### Pattern Matching
 
-Context Generator supports shell-style wildcards in exclusion patterns:
+Context Generator uses glob patterns for file and directory exclusions. Understanding how patterns work is key to effectively using the `--exclude` option and custom exclusions.
 
-- `*` - Matches any sequence of characters (e.g., `*.log`, `.env*`)
-- `?` - Matches any single character
-- `[...]` - Matches any character in brackets
-- `temp/*` - Everything in the `temp` directory
+#### Pattern Syntax
+
+The tool supports standard glob-style wildcards:
+
+- `*` - Matches any sequence of characters (except path separators)
+- `?` - Matches any single character (except path separators)
+- `[...]` - Matches any character in brackets (e.g., `[abc]`, `[a-z]`)
+- `[!...]` - Matches any character NOT in brackets
+- `{a,b,c}` - Matches any of the alternatives (e.g., `*.{js,ts}` matches `*.js` or `*.ts`)
+
+#### Directory vs File Patterns
+
+**Important**: Context Generator uses dual patterns for comprehensive directory exclusion:
+
+```yaml
+# For each directory, we use both patterns:
+- .git          # Matches the directory name itself
+- .git/**       # Matches all contents within the directory
+```
+
+**How this works:**
+1. **`.git` pattern** - Matches the directory name itself (e.g., `.git` directory)
+2. **`.git/**` pattern** - Matches all files and subdirectories within `.git`
+3. **Scanner enhancement** - The scanner uses `filter_entry()` to prevent traversal into excluded directories
+
+**Pattern Behavior (confirmed by tests):**
+- `.git` matches: `.git/` directory entry
+- `.git` does NOT match: `.git/config`, `.git/hooks/pre-commit`, etc.
+- `.git/**` matches: `.git/config`, `.git/hooks/pre-commit`, etc.
+- `.git/**` does NOT match: `.git/` directory entry itself
+
+**Why both patterns are needed:**
+- **Without `.git/**`**: Files inside `.git` wouldn't be matched by the filter pattern
+- **Without `filter_entry()`**: The scanner would still traverse into `.git` even if the directory is excluded
+- **Together**: Complete exclusion with optimal performance
+
+**The key insight**: The `filter_entry()` scanner enhancement prevents traversal into excluded directories, while the dual patterns ensure comprehensive matching at the filter level.
+
+#### Recursive Patterns (`**`)
+
+The `**` pattern is powerful for matching nested directories:
+
+```bash
+# Exclude all contents in .git directory
+.git/**
+
+# Exclude all TypeScript files in any subdirectory
+**/*.ts
+
+# Exclude all test files anywhere in the project
+**/*test*
+
+# Exclude all log files at any depth
+**/*.log
+```
+
+#### Common Pattern Examples
+
+**File Extensions:**
+```bash
+--exclude "*.log"        # All .log files
+--exclude "*.tmp"        # All .tmp files  
+--exclude "*.{bak,backup}" # Multiple extensions
+--exclude "**/*.min.js"  # Minified JS files anywhere
+```
+
+**Directory Names:**
+```bash
+--exclude "node_modules"     # Exclude node_modules directory
+--exclude "node_modules/**"  # Exclude all contents within node_modules
+--exclude ".git/**"          # Exclude all git contents
+--exclude "build/**"         # Exclude all build artifacts
+```
+
+**Path Patterns:**
+```bash
+--exclude "temp/*"           # Everything directly in temp/
+--exclude "temp/**"          # Everything in temp/ and subdirectories
+--exclude "src/*/test"       # Test directories in any src subdirectory
+--exclude "docs/**/*.{md,pdf}" # All markdown and PDF files in docs/
+```
+
+**Complex Patterns:**
+```bash
+--exclude "*.{log,tmp,temp,cache}"  # Multiple temporary file types
+--exclude ".{env,env.*,dotenv}"     # Environment files
+--exclude "**/{coverage,coverage.out}"  # Coverage reports
+--exclude "test{s,}/**"             # tests or test directories
+```
+
+#### Pattern Matching Rules
+
+1. **Path Separators**: `/` is always treated as a path separator, regardless of OS
+2. **Case Sensitivity**: Patterns are case-sensitive on Unix systems, case-insensitive on Windows
+3. **Hidden Files**: Patterns starting with `.` match hidden files (e.g., `.env*`)
+4. **Relative Paths**: Patterns are matched against relative paths from the scan directory
+5. **Dual Matching**: Patterns are tested against both the filename and the full relative path
+
+#### Pattern Precedence
+
+When multiple patterns could match a file:
+1. More specific patterns take precedence over general ones
+2. Earlier patterns in the list take precedence over later ones
+3. Custom `--exclude` patterns are checked after default patterns
+
+#### Testing Patterns
+
+Use `--dry-run` to verify your patterns work as expected:
+
+```bash
+# Test a single pattern
+context-generator --dry-run --exclude "*.log"
+
+# Test multiple patterns
+context-generator --dry-run --exclude "*.tmp" --exclude "temp/**"
+
+# Test complex patterns
+context-generator --dry-run --exclude "**/*{test,spec}*" --exclude "coverage/**"
+
+# Disable defaults and test only your patterns
+context-generator --dry-run --no-defaults --exclude "*.rs" --exclude "*.md"
+```
+
+The dry-run output shows exactly which files would be excluded and which pattern caused the exclusion, making it easy to debug complex patterns.
+
+#### Performance Considerations
+
+- **Directory patterns** (like `.git`) are more efficient than recursive patterns (like `.git/**`)
+- **Specific patterns** (like `*.log`) are faster than broad patterns (like `*`)
+- **Order matters**: Put commonly matched patterns first for better performance
+
+#### Integration with --exclude
+
+The `--exclude` option accepts the same pattern syntax used in `exclusions.yaml`:
+
+```bash
+# Single pattern
+context-generator --exclude "*.backup"
+
+# Multiple patterns
+context-generator --exclude "*.tmp" --exclude "temp/**" --exclude "*.log"
+
+# Complex patterns
+context-generator --exclude "**/*{test,spec}*" --exclude "coverage/**"
+
+# Combine with category disabling
+context-generator --exclude "*.custom" --disable-category logs
+```
+
+These patterns work alongside the default exclusions, giving you fine-grained control over what gets included in your AI context.
+
+#### Quick Reference
+
+**Common Exclusions:**
+```bash
+# Version control
+--exclude ".git" --exclude ".git/**"
+
+# Dependencies  
+--exclude "node_modules" --exclude "node_modules/**"
+--exclude "vendor" --exclude "vendor/**"
+
+# Build artifacts
+--exclude "target" --exclude "target/**"
+--exclude "build" --exclude "build/**"
+--exclude "dist" --exclude "dist/**"
+
+# Temporary files
+--exclude "*.tmp" --exclude "*.temp" --exclude "*.log"
+--exclude "temp" --exclude "temp/**"
+
+# IDE files
+--exclude ".vscode" --exclude ".vscode/**"
+--exclude ".idea" --exclude ".idea/**"
+
+# OS files
+--exclude ".DS_Store" --exclude "Thumbs.db"
+```
+
+**Advanced Patterns:**
+```bash
+# Multiple file types
+--exclude "*.{log,tmp,temp,bak,backup}"
+
+# All test files
+--exclude "**/*{test,spec}*"
+
+# Environment files
+--exclude ".env*" --exclude "*.env"
+
+# Generated files
+--exclude "**/*.{generated,gen,auto}"
+
+# Documentation build
+--exclude "docs/_build" --exclude "docs/_build/**"
+--exclude "_site" --exclude "_site/**"
+```
 
 ## Exclusion Categories
 
@@ -465,9 +658,11 @@ To add a new exclusion category:
   name: Your Language Name
   description: Brief description of what files this category excludes
   patterns:
-    - "*.your-ext"
-    - "build-dir"
-    - "*.generated"
+    - "*.your-ext"        # File extension patterns
+    - "build-dir"         # Directory name (matches directory itself)
+    - "build-dir/**"      # Directory contents (matches all files within)
+    - "*.generated"       # Generated file patterns
+    - "temp/**"           # All contents in temp directory
 ```
 
 2. **Test your changes** - Run the tool to verify your patterns work:
@@ -489,8 +684,10 @@ cargo build --release
 
 - **Use descriptive IDs**: Short, lowercase, hyphen-separated (e.g., `python-ds`, `web-frameworks`)
 - **Clear descriptions**: Explain what type of files are excluded
+- **Dual directory patterns**: Always include both `dirname` and `dirname/**` for directories
 - **Comprehensive patterns**: Include common file extensions, directories, and build artifacts
 - **Test thoroughly**: Ensure patterns work with real projects in that language/framework
+- **Use specific patterns**: Prefer `*.log` over `*` for better performance and accuracy
 
 ### Examples of Good Contributions
 
@@ -505,8 +702,10 @@ cargo build --release
     - "*.mocks.dart"
     - ".flutter-plugins"
     - ".flutter-plugins-dependencies"
-    - "build/"
-    - ".dart_tool/"
+    - "build"
+    - "build/**"
+    - ".dart_tool"
+    - ".dart_tool/**"
     - "ios/Flutter/Generated.xcconfig"
     - "ios/Flutter/flutter_export_environment.sh"
 
@@ -516,11 +715,13 @@ cargo build --release
   description: CMake build system files
   patterns:
     - "CMakeCache.txt"
-    - "CMakeFiles/"
+    - "CMakeFiles"
+    - "CMakeFiles/**"
     - "cmake_install.cmake"
     - "install_manifest.txt"
     - "*.cmake"
-    - "build/"
+    - "build"
+    - "build/**"
 ```
 
 The YAML format is embedded at compile time, so there's no runtime performance cost and the binary remains self-contained.

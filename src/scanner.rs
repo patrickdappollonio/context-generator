@@ -141,9 +141,6 @@ impl Scanner {
                 .filter
                 .should_exclude(path, &abs_dir, entry.file_type().is_dir())
             {
-                if entry.file_type().is_dir() {
-                    continue;
-                }
                 continue;
             }
 
@@ -229,11 +226,8 @@ impl Scanner {
                 .to_string_lossy()
                 .to_string();
 
-            // First check if excluded by filter patterns
-            if let Some(reason) =
-                self.filter
-                    .get_exclusion_reason(path, &abs_dir, entry.file_type().is_dir())
-            {
+            // Check if the path should be excluded by the filter
+            if let Some(reason) = self.filter.get_exclusion_reason(path, &abs_dir, entry.file_type().is_dir()) {
                 excluded_files.push(FileInfo {
                     rel_path,
                     is_dir: entry.file_type().is_dir(),
@@ -526,4 +520,161 @@ struct TreeNode {
     file: Option<FileInfo>,
     children: Vec<TreeNode>,
     is_dir: bool,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::TempDir;
+
+    #[test]
+    fn test_git_directory_exclusion_in_scan() {
+        // Create a temporary directory with .git folder
+        let temp_dir = TempDir::new().unwrap();
+        let base_path = temp_dir.path();
+        
+        // Create .git directory with some files
+        let git_dir = base_path.join(".git");
+        fs::create_dir_all(&git_dir).unwrap();
+        fs::write(git_dir.join("config"), "git config content").unwrap();
+        fs::write(git_dir.join("HEAD"), "ref: refs/heads/main").unwrap();
+        
+        // Create .git/hooks directory with files
+        let hooks_dir = git_dir.join("hooks");
+        fs::create_dir_all(&hooks_dir).unwrap();
+        fs::write(hooks_dir.join("pre-commit"), "#!/bin/bash\necho 'pre-commit'").unwrap();
+        
+        // Create .git/objects directory structure
+        let objects_dir = git_dir.join("objects").join("pack");
+        fs::create_dir_all(&objects_dir).unwrap();
+        fs::write(objects_dir.join("pack-123.idx"), "pack index content").unwrap();
+        
+        // Create some regular files
+        fs::write(base_path.join("main.rs"), "fn main() {}").unwrap();
+        fs::write(base_path.join("README.md"), "# Project").unwrap();
+        
+        // Test scanning with default filter (should exclude .git)
+        let filter = Filter::new_with_defaults(vec![], &[]).unwrap();
+        let scanner = Scanner::new(filter);
+        let mut output = Vec::new();
+        
+        scanner.scan(base_path, &mut output).unwrap();
+        let output_str = String::from_utf8(output).unwrap();
+        
+        // .git contents should not appear in output
+        assert!(!output_str.contains("git config content"));
+        assert!(!output_str.contains("ref: refs/heads/main"));
+        assert!(!output_str.contains("pre-commit"));
+        assert!(!output_str.contains("pack index content"));
+        
+        // Regular files should appear
+        assert!(output_str.contains("fn main() {}"));
+        assert!(output_str.contains("# Project"));
+    }
+
+    #[test]
+    fn test_git_directory_exclusion_in_dry_run() {
+        // Create a temporary directory with .git folder
+        let temp_dir = TempDir::new().unwrap();
+        let base_path = temp_dir.path();
+        
+        // Create .git directory with nested structure
+        let git_dir = base_path.join(".git");
+        fs::create_dir_all(&git_dir).unwrap();
+        fs::write(git_dir.join("config"), "git config").unwrap();
+        
+        let hooks_dir = git_dir.join("hooks");
+        fs::create_dir_all(&hooks_dir).unwrap();
+        fs::write(hooks_dir.join("pre-commit"), "hook content").unwrap();
+        
+        let objects_dir = git_dir.join("objects").join("info");
+        fs::create_dir_all(&objects_dir).unwrap();
+        fs::write(objects_dir.join("packs"), "objects info").unwrap();
+        
+        // Create regular files
+        fs::write(base_path.join("src.rs"), "source code").unwrap();
+        
+        // Test dry run with default filter
+        let filter = Filter::new_with_defaults(vec![], &[]).unwrap();
+        let scanner = Scanner::new(filter);
+        let mut output = Vec::new();
+        
+        scanner.dry_run(base_path, &mut output).unwrap();
+        let output_str = String::from_utf8(output).unwrap();
+        
+        // .git directory should be in excluded section
+        assert!(output_str.contains(".git/ [Version Control: .git]"));
+        
+        // .git subdirectories and files should not be in processed section
+        assert!(!output_str.contains("src.rs\n  ├── .git/"));
+        
+        // Regular files should be in processed section
+        assert!(output_str.contains("src.rs"));
+    }
+
+    #[test]
+    fn test_git_inclusion_when_vcs_disabled() {
+        // Create a temporary directory with .git folder
+        let temp_dir = TempDir::new().unwrap();
+        let base_path = temp_dir.path();
+        
+        // Create .git directory with files
+        let git_dir = base_path.join(".git");
+        fs::create_dir_all(&git_dir).unwrap();
+        fs::write(git_dir.join("config"), "git config content").unwrap();
+        
+        // Create regular files
+        fs::write(base_path.join("main.rs"), "fn main() {}").unwrap();
+        
+        // Test scanning with VCS category disabled
+        let filter = Filter::new_with_defaults(vec![], &["vcs".to_string()]).unwrap();
+        let scanner = Scanner::new(filter);
+        let mut output = Vec::new();
+        
+        scanner.scan(base_path, &mut output).unwrap();
+        let output_str = String::from_utf8(output).unwrap();
+        
+        // .git contents should appear when VCS is disabled
+        assert!(output_str.contains("git config content"));
+        
+        // Regular files should also appear
+        assert!(output_str.contains("fn main() {}"));
+    }
+
+    #[test]
+    fn test_other_vcs_directories_excluded() {
+        // Create a temporary directory with various VCS folders
+        let temp_dir = TempDir::new().unwrap();
+        let base_path = temp_dir.path();
+        
+        // Create various VCS directories
+        for vcs_dir in &[".git", ".svn", ".hg", ".bzr"] {
+            let vcs_path = base_path.join(vcs_dir);
+            fs::create_dir_all(&vcs_path).unwrap();
+            fs::write(vcs_path.join("config"), format!("{} config", vcs_dir)).unwrap();
+        }
+        
+        // Create regular files
+        fs::write(base_path.join("main.rs"), "fn main() {}").unwrap();
+        
+        // Test dry run
+        let filter = Filter::new_with_defaults(vec![], &[]).unwrap();
+        let scanner = Scanner::new(filter);
+        let mut output = Vec::new();
+        
+        scanner.dry_run(base_path, &mut output).unwrap();
+        let output_str = String::from_utf8(output).unwrap();
+        
+        // All VCS directories should be excluded
+        assert!(output_str.contains(".git/ [Version Control: .git]"));
+        assert!(output_str.contains(".svn/ [Version Control: .svn]"));
+        assert!(output_str.contains(".hg/ [Version Control: .hg]"));
+        assert!(output_str.contains(".bzr/ [Version Control: .bzr]"));
+        
+        // Regular files should be processed
+        assert!(output_str.contains("main.rs"));
+    }
+
+
 }

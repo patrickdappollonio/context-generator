@@ -734,4 +734,200 @@ mod tests {
         assert!(go_category.patterns.contains(&"go.sum".to_string()));
         assert!(go_category.patterns.contains(&"*.test".to_string()));
     }
+
+    #[test]
+    fn test_git_exclusion_patterns() {
+        let categories = get_exclusion_categories();
+        
+        // Find the VCS category
+        let vcs_category = categories.iter().find(|c| c.id == "vcs");
+        assert!(vcs_category.is_some(), "VCS category should exist");
+        
+        let vcs_category = vcs_category.unwrap();
+        assert_eq!(vcs_category.name, "Version Control");
+        assert!(vcs_category.patterns.contains(&".git".to_string()));
+        assert!(vcs_category.patterns.contains(&".svn".to_string()));
+        assert!(vcs_category.patterns.contains(&".hg".to_string()));
+    }
+
+    #[test]
+    fn test_git_directory_exclusion() {
+        let filter = Filter::new_with_defaults(vec![], &[]).unwrap();
+        let base_dir = PathBuf::from("/project");
+        
+        // Test .git directory exclusion (matches .git pattern)
+        let git_dir = PathBuf::from("/project/.git");
+        assert!(filter.should_exclude(&git_dir, &base_dir, true));
+        
+        // Test .git subdirectory exclusion (matches .git/** pattern)
+        let git_hooks_dir = PathBuf::from("/project/.git/hooks");
+        assert!(filter.should_exclude(&git_hooks_dir, &base_dir, true));
+        
+        // Test .git file exclusion (matches .git/** pattern)
+        let git_config = PathBuf::from("/project/.git/config");
+        assert!(filter.should_exclude(&git_config, &base_dir, false));
+        
+        // Test nested .git files (matches .git/** pattern)
+        let git_head = PathBuf::from("/project/.git/HEAD");
+        assert!(filter.should_exclude(&git_head, &base_dir, false));
+        
+        // Test deep nested .git files (matches .git/** pattern)
+        let git_object = PathBuf::from("/project/.git/objects/pack/pack-123.idx");
+        assert!(filter.should_exclude(&git_object, &base_dir, false));
+    }
+
+    #[test]
+    fn test_git_exclusion_reasons() {
+        let filter = Filter::new_with_defaults(vec![], &[]).unwrap();
+        let base_dir = PathBuf::from("/project");
+        
+        // Test .git directory exclusion reason (matches .git pattern)
+        let git_dir = PathBuf::from("/project/.git");
+        let reason = filter.get_exclusion_reason(&git_dir, &base_dir, true);
+        assert!(reason.is_some());
+        
+        let reason = reason.unwrap();
+        assert_eq!(reason.pattern, ".git");
+        assert_eq!(reason.category, "Version Control");
+        
+        // Test .git file exclusion reason (matches .git/** pattern)
+        let git_config = PathBuf::from("/project/.git/config");
+        let reason = filter.get_exclusion_reason(&git_config, &base_dir, false);
+        assert!(reason.is_some());
+        
+        let reason = reason.unwrap();
+        assert_eq!(reason.pattern, ".git/**");
+        assert_eq!(reason.category, "Version Control");
+    }
+
+    #[test]
+    fn test_non_git_files_not_excluded() {
+        let filter = Filter::new_with_defaults(vec![], &[]).unwrap();
+        let base_dir = PathBuf::from("/project");
+        
+        // Test that non-git files are not excluded
+        let regular_file = PathBuf::from("/project/src/main.rs");
+        assert!(!filter.should_exclude(&regular_file, &base_dir, false));
+        
+        // Test that files with "git" in name but not .git directory are not excluded
+        let gitignore_file = PathBuf::from("/project/.gitignore");
+        assert!(!filter.should_exclude(&gitignore_file, &base_dir, false));
+        
+        // Test that files with "git" in path but not .git directory are not excluded
+        let git_related = PathBuf::from("/project/docs/git-workflow.md");
+        assert!(!filter.should_exclude(&git_related, &base_dir, false));
+    }
+
+    #[test]
+    fn test_vcs_category_disabled() {
+        // Test that disabling VCS category allows .git files
+        let filter = Filter::new_with_defaults(vec![], &["vcs".to_string()]).unwrap();
+        let base_dir = PathBuf::from("/project");
+        
+        let git_dir = PathBuf::from("/project/.git");
+        assert!(!filter.should_exclude(&git_dir, &base_dir, true));
+        
+        let git_config = PathBuf::from("/project/.git/config");
+        assert!(!filter.should_exclude(&git_config, &base_dir, false));
+    }
+
+    #[test]
+    fn test_other_vcs_systems() {
+        let filter = Filter::new_with_defaults(vec![], &[]).unwrap();
+        let base_dir = PathBuf::from("/project");
+        
+        // Test other VCS systems are also excluded
+        let svn_dir = PathBuf::from("/project/.svn");
+        assert!(filter.should_exclude(&svn_dir, &base_dir, true));
+        
+        let hg_dir = PathBuf::from("/project/.hg");
+        assert!(filter.should_exclude(&hg_dir, &base_dir, true));
+        
+        let bzr_dir = PathBuf::from("/project/.bzr");
+        assert!(filter.should_exclude(&bzr_dir, &base_dir, true));
+    }
+
+    #[test]
+    fn test_directory_patterns_with_recursive() {
+        // Test that directory patterns now include both dir and dir/** patterns
+        let filter = Filter::new_with_defaults(vec![], &[]).unwrap();
+        let base_dir = PathBuf::from("/project");
+        
+        // Test node_modules exclusion
+        let node_modules_dir = PathBuf::from("/project/node_modules");
+        let node_file = PathBuf::from("/project/node_modules/some-package/index.js");
+        assert!(filter.should_exclude(&node_modules_dir, &base_dir, true));
+        assert!(filter.should_exclude(&node_file, &base_dir, false));
+        
+        // Test target exclusion (Rust build directory)
+        let target_dir = PathBuf::from("/project/target");
+        let target_file = PathBuf::from("/project/target/debug/context-generator");
+        assert!(filter.should_exclude(&target_dir, &base_dir, true));
+        assert!(filter.should_exclude(&target_file, &base_dir, false));
+        
+        // Test __pycache__ exclusion
+        let pycache_dir = PathBuf::from("/project/__pycache__");
+        let pycache_file = PathBuf::from("/project/__pycache__/module.pyc");
+        assert!(filter.should_exclude(&pycache_dir, &base_dir, true));
+        assert!(filter.should_exclude(&pycache_file, &base_dir, false));
+    }
+
+    #[test]
+    fn test_pattern_behavior_verification() {
+        // Test to confirm exactly how patterns behave
+        let base_dir = PathBuf::from("/project");
+        
+        // Test 1: Directory name pattern alone
+        let filter_git_only = Filter::new(vec![".git".to_string()]).unwrap();
+        let git_dir = PathBuf::from("/project/.git");
+        let git_config = PathBuf::from("/project/.git/config");
+        
+        println!("Pattern '.git' only:");
+        println!("  .git dir: {}", filter_git_only.should_exclude(&git_dir, &base_dir, true));
+        println!("  .git/config: {}", filter_git_only.should_exclude(&git_config, &base_dir, false));
+        
+        // Test 2: Recursive pattern alone
+        let filter_git_recursive = Filter::new(vec![".git/**".to_string()]).unwrap();
+        
+        println!("Pattern '.git/**' only:");
+        println!("  .git dir: {}", filter_git_recursive.should_exclude(&git_dir, &base_dir, true));
+        println!("  .git/config: {}", filter_git_recursive.should_exclude(&git_config, &base_dir, false));
+        
+        // Test 3: Both patterns together
+        let filter_both = Filter::new(vec![".git".to_string(), ".git/**".to_string()]).unwrap();
+        
+        println!("Both patterns:");
+        println!("  .git dir: {}", filter_both.should_exclude(&git_dir, &base_dir, true));
+        println!("  .git/config: {}", filter_both.should_exclude(&git_config, &base_dir, false));
+        
+        // Verify expectations
+        assert!(filter_git_only.should_exclude(&git_dir, &base_dir, true));     // .git matches dir name
+        assert!(!filter_git_only.should_exclude(&git_config, &base_dir, false)); // .git doesn't match contents
+        
+        assert!(!filter_git_recursive.should_exclude(&git_dir, &base_dir, true)); // .git/** doesn't match dir itself
+        assert!(filter_git_recursive.should_exclude(&git_config, &base_dir, false)); // .git/** matches contents
+        
+        assert!(filter_both.should_exclude(&git_dir, &base_dir, true));     // Both patterns work together
+        assert!(filter_both.should_exclude(&git_config, &base_dir, false)); // Both patterns work together
+    }
+
+    #[test]
+    fn test_pattern_exclusion_reasons() {
+        // Test which pattern provides the exclusion reason
+        let filter_both = Filter::new(vec![".git".to_string(), ".git/**".to_string()]).unwrap();
+        let base_dir = PathBuf::from("/project");
+        
+        let git_dir = PathBuf::from("/project/.git");
+        let git_config = PathBuf::from("/project/.git/config");
+        
+        // Check which pattern matches the directory
+        let dir_reason = filter_both.get_exclusion_reason(&git_dir, &base_dir, true);
+        assert!(dir_reason.is_some());
+        assert_eq!(dir_reason.unwrap().pattern, ".git"); // Directory name pattern matches
+        
+        // Check which pattern matches the file
+        let file_reason = filter_both.get_exclusion_reason(&git_config, &base_dir, false);
+        assert!(file_reason.is_some());
+        assert_eq!(file_reason.unwrap().pattern, ".git/**"); // Recursive pattern matches
+    }
 }
