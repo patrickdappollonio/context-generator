@@ -33,7 +33,7 @@ jobs:
             archive: windows-x86_64
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
         with:
